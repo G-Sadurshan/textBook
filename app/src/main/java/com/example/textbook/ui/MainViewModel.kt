@@ -18,26 +18,12 @@ class MainViewModel @Inject constructor(
     private val settingsManager: SettingsManager
 ) : ViewModel() {
 
+    init {
+        Timber.d("MainViewModel initialized")
+    }
+
     private val _currentFile = MutableStateFlow<TextFile?>(null)
     val currentFile: StateFlow<TextFile?> = _currentFile.asStateFlow()
-
-    private var autoSaveJob: kotlinx.coroutines.Job? = null
-
-    init {
-        // Start auto-save observer
-        currentFile.onEach { file ->
-            autoSaveJob?.cancel()
-            if (file != null) {
-                autoSaveJob = viewModelScope.launch {
-                    while (true) {
-                        kotlinx.coroutines.delay(10000)
-                        val content = _currentFile.value?.content ?: ""
-                        saveFile(content) // Periodic auto-save (no version)
-                    }
-                }
-            }
-        }.launchIn(viewModelScope)
-    }
 
     val allFiles = repository.getAllFiles()
         .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
@@ -95,18 +81,31 @@ class MainViewModel @Inject constructor(
         }
     }
 
-    fun saveFile(content: String, versionName: String? = null, comment: String? = null) {
+    fun toggleReadOnly() {
         val file = _currentFile.value ?: return
         viewModelScope.launch {
+            val updated = file.copy(isReadOnly = !file.isReadOnly)
+            repository.saveFile(updated)
+            _currentFile.value = updated
+        }
+    }
+
+    fun saveFile(content: String, versionName: String? = null, comment: String? = null) {
+        val file = _currentFile.value ?: return
+        if (file.isReadOnly) return
+        
+        viewModelScope.launch {
             try {
+                // If it's a version save, we store the diff
+                if (versionName != null) {
+                    repository.createVersion(file.path, versionName, comment, content)
+                }
+                
+                // Always update the base file and the UI state
                 val updatedFile = file.copy(content = content, lastModified = System.currentTimeMillis())
                 repository.saveFile(updatedFile)
                 _currentFile.value = updatedFile
                 repository.clearRecoveryData(file.path)
-                
-                if (versionName != null) {
-                    repository.createVersion(file.path, versionName, comment, content)
-                }
             } catch (e: Exception) {
                 Timber.e(e, "Failed to save file ${file.path}")
             }
@@ -115,6 +114,7 @@ class MainViewModel @Inject constructor(
 
     fun cacheForRecovery(content: String) {
         val file = _currentFile.value ?: return
+        if (file.isReadOnly) return
         viewModelScope.launch {
             repository.saveRecoveryData(file.path, content)
         }
@@ -170,7 +170,23 @@ class MainViewModel @Inject constructor(
         }
     }
 
-    // Search & Replace
+    // File Search (Global)
+    private val _fileSearchQuery = MutableStateFlow("")
+    val fileSearchQuery = _fileSearchQuery.asStateFlow()
+
+    val filteredFiles = combine(allFiles, _fileSearchQuery) { files, query ->
+        if (query.isBlank()) files
+        else files.filter { 
+            it.name.contains(query, ignoreCase = true) || 
+            it.extension.contains(query, ignoreCase = true) 
+        }
+    }.stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
+
+    fun updateFileSearchQuery(query: String) {
+        _fileSearchQuery.value = query
+    }
+
+    // Search & Replace (In-file)
     private val _searchQuery = MutableStateFlow("")
     val searchQuery = _searchQuery.asStateFlow()
     

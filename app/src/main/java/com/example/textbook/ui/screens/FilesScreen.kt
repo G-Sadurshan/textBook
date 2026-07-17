@@ -6,11 +6,10 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -25,12 +24,17 @@ import com.example.textbook.ui.Screen
 
 @Composable
 fun FilesScreen(navController: NavController, viewModel: MainViewModel) {
-    val files by viewModel.allFiles.collectAsState()
+    val files by viewModel.filteredFiles.collectAsState()
+    val searchQuery by viewModel.fileSearchQuery.collectAsState()
 
     Scaffold(
         floatingActionButton = {
-            FloatingActionButton(onClick = { navController.navigate(Screen.NewFile.route) }, containerColor = Color(0xFF2196F3)) {
-                Icon(Icons.Default.Add, contentDescription = "New File", tint = Color.White)
+            FloatingActionButton(
+                onClick = { navController.navigate(Screen.NewFile.route) }, 
+                containerColor = Color(0xFF3B82F6),
+                contentColor = Color.White
+            ) {
+                Icon(Icons.Default.Add, contentDescription = "New File")
             }
         }
     ) { innerPadding ->
@@ -41,7 +45,11 @@ fun FilesScreen(navController: NavController, viewModel: MainViewModel) {
             Spacer(modifier = Modifier.height(16.dp))
             
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                SearchSection(modifier = Modifier.weight(1f))
+                FileSearchSection(
+                    query = searchQuery,
+                    onQueryChange = { viewModel.updateFileSearchQuery(it) },
+                    modifier = Modifier.weight(1f)
+                )
                 IconButton(onClick = { /* Sort */ }) {
                     Icon(Icons.Default.Sort, contentDescription = "Sort")
                 }
@@ -51,7 +59,10 @@ fun FilesScreen(navController: NavController, viewModel: MainViewModel) {
             
             if (files.isEmpty()) {
                 Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
-                    Text("No files yet", color = Color.Gray)
+                    Text(
+                        text = if (searchQuery.isEmpty()) "No files yet" else "No matches found", 
+                        color = Color.Gray
+                    )
                 }
             } else {
                 LazyColumn(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -84,13 +95,21 @@ fun ExplorerFileItem(file: TextFile, onClick: () -> Unit) {
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Box(
-                modifier = Modifier.size(40.dp).clip(RoundedCornerShape(8.dp)).background(Color(0xFFF5F5F5)),
+                modifier = Modifier.size(40.dp).clip(RoundedCornerShape(8.dp)).background(Color(0xFFF1F5F9)),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(Icons.Default.Description, contentDescription = null, tint = Color(0xFF64B5F6))
+                Icon(
+                    imageVector = when(file.extension.lowercase()) {
+                        "kt" -> Icons.Default.Code
+                        "md" -> Icons.Default.Description
+                        else -> Icons.AutoMirrored.Filled.Article
+                    }, 
+                    contentDescription = null, 
+                    tint = Color(0xFF64748B)
+                )
             }
             Column(modifier = Modifier.weight(1f)) {
-                Text(text = file.name, fontWeight = FontWeight.Bold)
+                Text(text = file.name, fontWeight = FontWeight.Bold, color = Color(0xFF0F172A))
                 Text(text = "${file.extension.uppercase()} • ${file.path}", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
             }
             Icon(Icons.Default.ChevronRight, contentDescription = null, tint = Color.Gray)
@@ -109,24 +128,35 @@ fun StorageSection() {
         LinearProgressIndicator(
             progress = { 0.48f },
             modifier = Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp)),
-            color = Color(0xFF2196F3),
-            trackColor = Color(0xFFE0E0E0)
+            color = Color(0xFF3B82F6),
+            trackColor = Color(0xFFE2E8F0)
         )
     }
 }
 
 @Composable
-fun SearchSection(modifier: Modifier = Modifier) {
+fun FileSearchSection(
+    query: String,
+    onQueryChange: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
     OutlinedTextField(
-        value = "",
-        onValueChange = {},
+        value = query,
+        onValueChange = onQueryChange,
         modifier = modifier,
-        placeholder = { Text("Search...") },
-        leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+        placeholder = { Text("Search files...", fontSize = 14.sp) },
+        leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(20.dp)) },
+        trailingIcon = {
+            if (query.isNotEmpty()) {
+                IconButton(onClick = { onQueryChange("") }) {
+                    Icon(Icons.Default.Clear, contentDescription = "Clear", modifier = Modifier.size(20.dp))
+                }
+            }
+        },
         shape = RoundedCornerShape(12.dp),
         colors = TextFieldDefaults.colors(
-            unfocusedContainerColor = Color(0xFFF5F5F5),
-            focusedContainerColor = Color(0xFFF5F5F5),
+            unfocusedContainerColor = Color(0xFFF1F5F9),
+            focusedContainerColor = Color(0xFFF1F5F9),
             unfocusedIndicatorColor = Color.Transparent,
             focusedIndicatorColor = Color.Transparent
         ),

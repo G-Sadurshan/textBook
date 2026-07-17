@@ -18,23 +18,23 @@ class TextBookRepositoryImpl @Inject constructor(
 ) : TextBookRepository {
 
     override fun getAllFiles(): Flow<List<TextFile>> = fileDao.getAllFiles().map { list ->
-        list.map { it.toDomain(storageManager.readFile(it.path)) }
+        list.map { it.toDomain("") } // Don't read content for list view
     }
 
     override fun getFavoriteFiles(): Flow<List<TextFile>> = fileDao.getFavoriteFiles().map { list ->
-        list.map { it.toDomain(storageManager.readFile(it.path)) }
+        list.map { it.toDomain("") }
     }
 
     override fun getPinnedFiles(): Flow<List<TextFile>> = fileDao.getPinnedFiles().map { list ->
-        list.map { it.toDomain(storageManager.readFile(it.path)) }
+        list.map { it.toDomain("") }
     }
 
     override fun getRecentFiles(): Flow<List<TextFile>> = fileDao.getRecentFiles().map { list ->
-        list.map { it.toDomain(storageManager.readFile(it.path)) }
+        list.map { it.toDomain("") }
     }
 
     override fun getTrashFiles(): Flow<List<TextFile>> = fileDao.getTrashFiles().map { list ->
-        list.map { it.toDomain(storageManager.readFile(it.path)) }
+        list.map { it.toDomain("") }
     }
 
     override suspend fun getFileByPath(path: String): TextFile? {
@@ -98,12 +98,25 @@ class TextBookRepositoryImpl @Inject constructor(
     }
 
     override suspend fun restoreVersion(version: FileVersion, applyToDisk: Boolean): String {
-        val currentContent = storageManager.readFile(version.filePath)
-        val restoredContent = diffManager.applyDiffJson(currentContent, version.diffContent)
-        if (applyToDisk) {
-            storageManager.writeFile(version.filePath, restoredContent)
+        val allVersions = fileDao.getVersionsForFile(version.filePath).first()
+        val sortedVersions = allVersions.sortedByDescending { it.versionNumber }
+        
+        var content = storageManager.readFile(version.filePath)
+        
+        // Apply deltas to go back in time
+        for (v in sortedVersions) {
+            if (v.versionNumber > version.versionNumber) {
+                content = diffManager.applyDiffJson(content, v.diffContent)
+            } else {
+                break
+            }
         }
-        return restoredContent
+        
+        if (applyToDisk) {
+            storageManager.writeFile(version.filePath, content)
+            fileDao.insertRecentFile(RecentFileEntity(version.filePath, System.currentTimeMillis()))
+        }
+        return content
     }
 
     override suspend fun getRecoveryData(path: String): String? {

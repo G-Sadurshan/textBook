@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">TextBook</string>
+    <string name="app_name">Textbook</string>
     <string name="explorer">Explorer</string>
     <string name="internal_storage">Internal Storage</string>
     <string name="new_file">New File</string>

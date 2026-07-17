@@ -10,6 +10,9 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.sp
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.*
@@ -81,7 +84,7 @@ fun MainScreen(viewModel: MainViewModel) {
         drawerContent = {
             ModalDrawerSheet {
                 Spacer(Modifier.height(12.dp))
-                Text("TextBook", modifier = Modifier.padding(16.dp), style = MaterialTheme.typography.headlineMedium)
+                Text("Textbook", modifier = Modifier.padding(16.dp), style = MaterialTheme.typography.headlineMedium)
                 HorizontalDivider()
                 drawerItems.forEach { item ->
                     NavigationDrawerItem(
@@ -100,24 +103,46 @@ fun MainScreen(viewModel: MainViewModel) {
     ) {
         Scaffold(
             bottomBar = {
-                NavigationBar {
-                    val navBackStackEntry by navController.currentBackStackEntryAsState()
-                    val currentDestination = navBackStackEntry?.destination
-                    bottomBarItems.forEach { screen ->
-                        NavigationBarItem(
-                            icon = { Icon(screen.icon, contentDescription = null) },
-                            label = { Text(screen.title) },
-                            selected = currentDestination?.hierarchy?.any { it.route == screen.route } == true,
-                            onClick = {
-                                navController.navigate(screen.route) {
-                                    popUpTo(navController.graph.findStartDestination().id) {
-                                        saveState = true
+                Surface(
+                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f),
+                    tonalElevation = 8.dp,
+                    shadowElevation = 8.dp
+                ) {
+                    NavigationBar(
+                        containerColor = Color.Transparent,
+                        modifier = Modifier.height(70.dp)
+                    ) {
+                        val navBackStackEntry by navController.currentBackStackEntryAsState()
+                        val currentDestination = navBackStackEntry?.destination
+                        bottomBarItems.forEach { screen ->
+                            NavigationBarItem(
+                                icon = { 
+                                    Icon(
+                                        if (currentDestination?.hierarchy?.any { it.route == screen.route } == true) 
+                                            screen.icon 
+                                        else 
+                                            screen.icon, // Could use outlined version if available
+                                        contentDescription = null 
+                                    ) 
+                                },
+                                label = { Text(screen.title, fontSize = 11.sp, fontWeight = FontWeight.Medium) },
+                                selected = currentDestination?.hierarchy?.any { it.route == screen.route } == true,
+                                colors = NavigationBarItemDefaults.colors(
+                                    selectedIconColor = Color(0xFF3B82F6),
+                                    selectedTextColor = Color(0xFF3B82F6),
+                                    indicatorColor = Color(0xFFE0F2FE)
+                                ),
+                                onClick = {
+                                    navController.navigate(screen.route) {
+                                        popUpTo(navController.graph.findStartDestination().id) {
+                                            saveState = true
+                                        }
+                                        launchSingleTop = true
+                                        restoreState = true
                                     }
-                                    launchSingleTop = true
-                                    restoreState = true
                                 }
-                            }
-                        )
+                            )
+                        }
                     }
                 }
             }
