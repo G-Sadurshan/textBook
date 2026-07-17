@@ -5,6 +5,7 @@ import com.example.textbook.domain.TextFile
 import com.example.textbook.domain.TextBookRepository
 import com.example.textbook.vcs.DiffManager
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -80,10 +81,15 @@ class TextBookRepositoryImpl @Inject constructor(
 
     override suspend fun createVersion(path: String, name: String, comment: String?, content: String) {
         val currentContent = storageManager.readFile(path)
-        val diff = diffManager.generateDiffJson(currentContent, content)
+        val versions = fileDao.getVersionsForFile(path).first()
+        val nextNumber = (versions.maxByOrNull { it.versionNumber }?.versionNumber ?: 0) + 1
+        
+        // Store how to get from the NEW content back to the OLD content
+        val diff = diffManager.generateDiffJson(content, currentContent)
         val version = VersionEntity(
             filePath = path,
             versionName = name,
+            versionNumber = nextNumber,
             timestamp = System.currentTimeMillis(),
             comment = comment,
             diffContent = diff
@@ -91,10 +97,12 @@ class TextBookRepositoryImpl @Inject constructor(
         fileDao.insertVersion(version)
     }
 
-    override suspend fun restoreVersion(version: FileVersion): String {
+    override suspend fun restoreVersion(version: FileVersion, applyToDisk: Boolean): String {
         val currentContent = storageManager.readFile(version.filePath)
         val restoredContent = diffManager.applyDiffJson(currentContent, version.diffContent)
-        storageManager.writeFile(version.filePath, restoredContent)
+        if (applyToDisk) {
+            storageManager.writeFile(version.filePath, restoredContent)
+        }
         return restoredContent
     }
 
@@ -125,6 +133,7 @@ class TextBookRepositoryImpl @Inject constructor(
         id = id,
         filePath = filePath,
         versionName = versionName,
+        versionNumber = versionNumber,
         timestamp = timestamp,
         comment = comment,
         diffContent = diffContent,

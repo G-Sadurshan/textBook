@@ -110,7 +110,7 @@ fun VersionItem(version: FileVersion, onRestore: () -> Unit, onDiff: () -> Unit)
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(text = version.versionName, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                    Text(text = "v${version.versionNumber} - ${version.versionName}", fontWeight = FontWeight.Bold, fontSize = 16.sp)
                     Text(text = timeString, fontSize = 12.sp, color = Color.Gray)
                 }
                 

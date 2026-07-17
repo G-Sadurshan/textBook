@@ -4,6 +4,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -26,13 +27,25 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
+            val viewModel: MainViewModel = viewModel()
+            val themeMode by viewModel.themeMode.collectAsState(initial = com.example.textbook.ui.theme.ThemeMode.SYSTEM)
+            val dynamicColors by viewModel.dynamicColors.collectAsState(initial = true)
+            
             var showSplash by remember { mutableStateOf(true) }
             
-            TextBookTheme {
+            val isDarkTheme = when (themeMode) {
+                com.example.textbook.ui.theme.ThemeMode.SYSTEM -> isSystemInDarkTheme()
+                com.example.textbook.ui.theme.ThemeMode.LIGHT -> false
+                com.example.textbook.ui.theme.ThemeMode.DARK -> true
+            }
+
+            TextBookTheme(
+                darkTheme = isDarkTheme,
+                dynamicColor = dynamicColors
+            ) {
                 if (showSplash) {
                     SplashScreen(onTimeout = { showSplash = false })
                 } else {
-                    val viewModel: MainViewModel = viewModel()
                     MainScreen(viewModel)
                 }
             }
@@ -46,7 +59,17 @@ fun MainScreen(viewModel: MainViewModel) {
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
     
-    val items = listOf(
+    val drawerItems = listOf(
+        Screen.Home,
+        Screen.Files,
+        Screen.Favorites,
+        Screen.History,
+        Screen.Storage,
+        Screen.Trash,
+        Screen.Settings
+    )
+
+    val bottomBarItems = listOf(
         Screen.Home,
         Screen.Files,
         Screen.History,
@@ -60,11 +83,11 @@ fun MainScreen(viewModel: MainViewModel) {
                 Spacer(Modifier.height(12.dp))
                 Text("TextBook", modifier = Modifier.padding(16.dp), style = MaterialTheme.typography.headlineMedium)
                 HorizontalDivider()
-                items.forEach { item ->
+                drawerItems.forEach { item ->
                     NavigationDrawerItem(
                         icon = { Icon(item.icon, contentDescription = null) },
                         label = { Text(item.title) },
-                        selected = false, // Simplified
+                        selected = false,
                         onClick = {
                             scope.launch { drawerState.close() }
                             navController.navigate(item.route)
@@ -80,7 +103,7 @@ fun MainScreen(viewModel: MainViewModel) {
                 NavigationBar {
                     val navBackStackEntry by navController.currentBackStackEntryAsState()
                     val currentDestination = navBackStackEntry?.destination
-                    items.forEach { screen ->
+                    bottomBarItems.forEach { screen ->
                         NavigationBarItem(
                             icon = { Icon(screen.icon, contentDescription = null) },
                             label = { Text(screen.title) },
@@ -104,7 +127,11 @@ fun MainScreen(viewModel: MainViewModel) {
                 startDestination = Screen.Home.route,
                 modifier = Modifier.padding(innerPadding)
             ) {
-                composable(Screen.Home.route) { HomeScreen(navController, viewModel) }
+                composable(Screen.Home.route) { 
+                    HomeScreen(navController, viewModel, onMenuClick = {
+                        scope.launch { drawerState.open() }
+                    }) 
+                }
                 composable(Screen.Files.route) { FilesScreen(navController, viewModel) }
                 composable(Screen.Editor.route) { backStackEntry ->
                     val encodedPath = backStackEntry.arguments?.getString("filePath") ?: ""
@@ -125,6 +152,15 @@ fun MainScreen(viewModel: MainViewModel) {
                 composable(Screen.DiffViewer.route) {
                     val diffData by viewModel.diffData.collectAsState()
                     DiffViewerScreen(navController, diffData?.first ?: "", diffData?.second ?: "")
+                }
+                composable(Screen.Favorites.route) { 
+                    FilesScreen(navController, viewModel) // Filter logic can be added to viewModel
+                }
+                composable(Screen.Trash.route) { 
+                    FilesScreen(navController, viewModel) // Filter logic can be added to viewModel
+                }
+                composable(Screen.Storage.route) { 
+                    FilesScreen(navController, viewModel) // Placeholder
                 }
             }
         }

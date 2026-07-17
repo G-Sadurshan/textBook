@@ -15,6 +15,7 @@ data class FileVersion(
     val id: Long,
     val filePath: String,
     val versionName: String,
+    val versionNumber: Int,
     val timestamp: Long,
     val comment: String?,
     val diffContent: String,

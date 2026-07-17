@@ -21,6 +21,24 @@ class MainViewModel @Inject constructor(
     private val _currentFile = MutableStateFlow<TextFile?>(null)
     val currentFile: StateFlow<TextFile?> = _currentFile.asStateFlow()
 
+    private var autoSaveJob: kotlinx.coroutines.Job? = null
+
+    init {
+        // Start auto-save observer
+        currentFile.onEach { file ->
+            autoSaveJob?.cancel()
+            if (file != null) {
+                autoSaveJob = viewModelScope.launch {
+                    while (true) {
+                        kotlinx.coroutines.delay(10000)
+                        val content = _currentFile.value?.content ?: ""
+                        saveFile(content) // Periodic auto-save (no version)
+                    }
+                }
+            }
+        }.launchIn(viewModelScope)
+    }
+
     val allFiles = repository.getAllFiles()
         .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
@@ -39,9 +57,13 @@ class MainViewModel @Inject constructor(
     }.stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
     // Settings
-    val darkMode = settingsManager.darkMode
+    val themeMode = settingsManager.themeMode
+    val dynamicColors = settingsManager.dynamicColors
     val fontSize = settingsManager.fontSize
     val wordWrap = settingsManager.wordWrap
+
+    private val _recoveryData = MutableStateFlow<String?>(null)
+    val recoveryData = _recoveryData.asStateFlow()
 
     fun openFile(path: String) {
         viewModelScope.launch {
@@ -50,9 +72,8 @@ class MainViewModel @Inject constructor(
                 _currentFile.value = file
                 // Check for recovery
                 val recovery = repository.getRecoveryData(path)
-                if (recovery != null) {
-                    Timber.d("Recovery data found for $path")
-                    // Handle recovery (e.g. show dialog)
+                if (recovery != null && recovery != file?.content) {
+                    _recoveryData.value = recovery
                 }
             } catch (e: Exception) {
                 Timber.e(e, "Failed to open file $path")
@@ -60,7 +81,21 @@ class MainViewModel @Inject constructor(
         }
     }
 
-    fun saveFile(content: String, comment: String? = null) {
+    fun applyRecovery(content: String) {
+        _currentFile.value = _currentFile.value?.copy(content = content)
+        _recoveryData.value = null
+        saveFile(content, "Recovered Content")
+    }
+
+    fun discardRecovery() {
+        val path = _currentFile.value?.path ?: return
+        viewModelScope.launch {
+            repository.clearRecoveryData(path)
+            _recoveryData.value = null
+        }
+    }
+
+    fun saveFile(content: String, versionName: String? = null, comment: String? = null) {
         val file = _currentFile.value ?: return
         viewModelScope.launch {
             try {
@@ -69,8 +104,8 @@ class MainViewModel @Inject constructor(
                 _currentFile.value = updatedFile
                 repository.clearRecoveryData(file.path)
                 
-                if (comment != null) {
-                    repository.createVersion(file.path, "Version ${System.currentTimeMillis()}", comment, content)
+                if (versionName != null) {
+                    repository.createVersion(file.path, versionName, comment, content)
                 }
             } catch (e: Exception) {
                 Timber.e(e, "Failed to save file ${file.path}")
@@ -106,9 +141,9 @@ class MainViewModel @Inject constructor(
         }
     }
 
-    fun setDarkMode(enabled: Boolean) {
+    fun setThemeMode(mode: com.example.textbook.ui.theme.ThemeMode) {
         viewModelScope.launch {
-            settingsManager.setDarkMode(enabled)
+            settingsManager.setThemeMode(mode)
         }
     }
 
@@ -130,7 +165,8 @@ class MainViewModel @Inject constructor(
     fun showDiff(version: FileVersion) {
         viewModelScope.launch {
             val currentContent = _currentFile.value?.content ?: ""
-            _diffData.value = Pair(currentContent, version.diffContent) // Simplified for side-by-side comparison
+            val versionContent = repository.restoreVersion(version, applyToDisk = false)
+            _diffData.value = Pair(versionContent, currentContent)
         }
     }
 

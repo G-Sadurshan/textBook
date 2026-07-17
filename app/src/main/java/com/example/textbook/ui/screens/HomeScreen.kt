@@ -30,12 +30,12 @@ import com.example.textbook.ui.Screen
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HomeScreen(navController: NavController, viewModel: MainViewModel) {
+fun HomeScreen(navController: NavController, viewModel: MainViewModel, onMenuClick: () -> Unit) {
     val recentFiles by viewModel.recentFiles.collectAsState()
 
     Scaffold(
         topBar = {
-            HomeTopBar()
+            HomeTopBar(onMenuClick)
         },
         floatingActionButton = {
             ExtendedFloatingActionButton(
@@ -105,7 +105,7 @@ fun HomeScreen(navController: NavController, viewModel: MainViewModel) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HomeTopBar() {
+fun HomeTopBar(onMenuClick: () -> Unit) {
     TopAppBar(
         title = {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -117,6 +117,11 @@ fun HomeTopBar() {
                 )
                 Spacer(Modifier.width(8.dp))
                 Text("TextBook", fontWeight = FontWeight.ExtraBold)
+            }
+        },
+        navigationIcon = {
+            IconButton(onClick = onMenuClick) {
+                Icon(Icons.Rounded.Menu, contentDescription = "Menu")
             }
         },
         actions = {
@@ -203,7 +208,7 @@ fun QuickActionGrid(navController: NavController) {
                 navController.navigate(Screen.Files.route)
             }
             QuickActionPremiumItem(Modifier.weight(1f), "Kotlin", Icons.Rounded.Code, Color(0xFFF5F3FF), Color(0xFF7C3AED)) {
-                // Kotlin specific
+                // navController.navigate(Screen.Files.route) // or filter
             }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -212,6 +217,14 @@ fun QuickActionGrid(navController: NavController) {
             }
             QuickActionPremiumItem(Modifier.weight(1f), "History", Icons.Rounded.History, Color(0xFFF0FDF4), Color(0xFF10B981)) {
                 navController.navigate(Screen.History.route)
+            }
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            QuickActionPremiumItem(Modifier.weight(1f), "Favorites", Icons.Rounded.Star, Color(0xFFFEF3C7), Color(0xFFF59E0B)) {
+                navController.navigate(Screen.Favorites.route)
+            }
+            QuickActionPremiumItem(Modifier.weight(1f), "Settings", Icons.Rounded.Settings, Color(0xFFF1F5F9), Color(0xFF64748B)) {
+                navController.navigate(Screen.Settings.route)
             }
         }
     }

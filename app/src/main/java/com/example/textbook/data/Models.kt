@@ -33,6 +33,7 @@ data class VersionEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val filePath: String,
     val versionName: String,
+    val versionNumber: Int,
     val timestamp: Long,
     val comment: String?,
     val diffContent: String, // Storing incremental changes (deltas)

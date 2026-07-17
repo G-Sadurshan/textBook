@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.FormatAlignLeft
 import androidx.compose.material.icons.automirrored.filled.Redo
 import androidx.compose.material.icons.automirrored.filled.Undo
 import androidx.compose.material.icons.filled.*
@@ -28,9 +29,28 @@ import androidx.compose.ui.tooling.preview.Preview
 fun EditorScreen(navController: NavController, viewModel: MainViewModel) {
     val file by viewModel.currentFile.collectAsState()
     val fontSize by viewModel.fontSize.collectAsState(14)
+    val recoveryData by viewModel.recoveryData.collectAsState()
     
     // Using a derived state for content to integrate Undo/Redo
     val undoRedoManager = remember(file?.path) { UndoRedoManager(file?.content ?: "") }
+
+    if (recoveryData != null) {
+        AlertDialog(
+            onDismissRequest = { viewModel.discardRecovery() },
+            title = { Text("Recover Unsaved Changes?") },
+            text = { Text("It looks like the app closed unexpectedly. Do you want to restore your unsaved work?") },
+            confirmButton = {
+                Button(onClick = { viewModel.applyRecovery(recoveryData!!) }) {
+                    Text("Restore")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { viewModel.discardRecovery() }) {
+                    Text("Discard")
+                }
+            }
+        )
+    }
 
     EditorScreenContent(
         fileName = file?.name ?: "No File",
@@ -45,7 +65,13 @@ fun EditorScreen(navController: NavController, viewModel: MainViewModel) {
         },
         onUndo = { undoRedoManager.undo() },
         onRedo = { undoRedoManager.redo() },
-        onSaveClick = { viewModel.saveFile(undoRedoManager.currentContent, "Manual Save") },
+        onSaveClick = { 
+            viewModel.saveFile(
+                undoRedoManager.currentContent, 
+                "Version ${System.currentTimeMillis()}", 
+                "Manual save"
+            ) 
+        },
         onBackClick = { navController.popBackStack() },
         onSearchClick = { navController.navigate(Screen.SearchReplace.route) },
         onPreviewClick = { navController.navigate(Screen.MarkdownPreview.route) }
@@ -91,6 +117,14 @@ fun EditorScreenContent(
                     if (fileExtension == "md") {
                         IconButton(onClick = onPreviewClick) { 
                             Icon(Icons.Default.Visibility, contentDescription = "Preview") 
+                        }
+                    }
+                    if (fileExtension == "kt") {
+                        IconButton(onClick = {
+                            val formatted = com.example.textbook.editor.CodeFormatter.formatKotlin(textContent)
+                            onTextChange(formatted)
+                        }) {
+                            Icon(Icons.AutoMirrored.Filled.FormatAlignLeft, contentDescription = "Format")
                         }
                     }
                     IconButton(onClick = onSaveClick) { 

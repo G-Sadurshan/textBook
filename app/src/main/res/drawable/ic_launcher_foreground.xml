@@ -4,23 +4,45 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <!-- Notebook Shape -->
+
+    <!-- Stacked Pages behind -->
+    <path
+        android:fillColor="#7C3AED"
+        android:pathData="M35,22h45c3.3,0 6,2.7 6,6v42c0,3.3 -2.7,6 -6,6h-45c-3.3,0 -6,-2.7 -6,-6v-42c0,-3.3 2.7,-6 6,-6z" />
+
+    <!-- Main Notebook -->
+    <path
+        android:fillColor="#3B82F6"
+        android:pathData="M28,30h45c3.3,0 6,2.7 6,6v42c0,3.3 -2.7,6 -6,6h-45c-3.3,0 -6,-2.7 -6,-6v-42c0,-3.3 2.7,-6 6,-6z" />
+
+    <!-- Notebook spine/binding -->
     <path
         android:fillColor="#FFFFFF"
-        android:pathData="M30,25h40c4.4,0 8,3.6 8,8v42c0,4.4 -3.6,8 -8,8h-40c-4.4,0 -8,-3.6 -8,-8v-42c0,-4.4 3.6,-8 8,-8z" />
+        android:pathData="M28,30h4v54h-4z" />
 
     <!-- Code Brackets </> -->
     <path
-        android:fillColor="#3B82F6"
-        android:pathData="M40,45l-5,5l5,5M60,45l5,5l-5,5M52,43l-4,14" />
+        android:fillColor="#FFFFFF"
+        android:pathData="M42,50l-4,4l4,4M58,50l4,4l-4,4M52,47l-4,14" />
 
-    <!-- Pencil Icon -->
-    <path
-        android:fillColor="#7C3AED"
-        android:pathData="M65,30l3,3l-15,15l-3,-3zM50,48l-2,2l5,-1z" />
-
-    <!-- Timeline/Version node -->
+    <!-- Pencil Icon (Simplified) -->
     <path
         android:fillColor="#06B6D4"
-        android:pathData="M35,70h30M45,70v5M55,70v5" />
+        android:pathData="M65,37l4,4l-12,12l-4,-4z" />
+
+    <!-- Version history branching icon (bottom) -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M40,75h20M50,75v6c0,1 1,2 2,2h4" />
+
+    <!-- Nodes (represented as small squares/paths for dots) -->
+    <path
+        android:fillColor="#06B6D4"
+        android:pathData="M38,73h4v4h-4z" />
+    <path
+        android:fillColor="#06B6D4"
+        android:pathData="M58,73h4v4h-4z" />
+    <path
+        android:fillColor="#06B6D4"
+        android:pathData="M54,81h4v4h-4z" />
 </vector>

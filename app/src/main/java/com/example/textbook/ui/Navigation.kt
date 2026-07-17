@@ -17,4 +17,8 @@ sealed class Screen(val route: String, val title: String, val icon: ImageVector)
     object NewFile : Screen("new_file", "New File", Icons.Default.Add)
     object MarkdownPreview : Screen("markdown_preview", "Preview", Icons.Default.Visibility)
     object DiffViewer : Screen("diff_viewer", "Diff", Icons.Default.Difference)
+    
+    object Favorites : Screen("favorites", "Favorites", Icons.Default.Star)
+    object Trash : Screen("trash", "Trash", Icons.Default.Delete)
+    object Storage : Screen("storage", "Storage", Icons.Default.Storage)
 }

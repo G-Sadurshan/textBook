@@ -18,7 +18,7 @@ interface TextBookRepository {
     // Versions
     fun getVersionsForFile(path: String): Flow<List<FileVersion>>
     suspend fun createVersion(path: String, name: String, comment: String?, content: String)
-    suspend fun restoreVersion(version: FileVersion): String
+    suspend fun restoreVersion(version: FileVersion, applyToDisk: Boolean = true): String
     
     // Recovery
     suspend fun getRecoveryData(path: String): String?
