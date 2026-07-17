@@ -1,21 +1,25 @@
 package com.example.textbook.ui.screens
 
+import androidx.compose.animation.*
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -24,189 +28,274 @@ import com.example.textbook.domain.TextFile
 import com.example.textbook.ui.MainViewModel
 import com.example.textbook.ui.Screen
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(navController: NavController, viewModel: MainViewModel) {
     val recentFiles by viewModel.recentFiles.collectAsState()
 
-    LazyColumn(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(24.dp)
-    ) {
-        item {
-            HeaderSection()
+    Scaffold(
+        topBar = {
+            HomeTopBar()
+        },
+        floatingActionButton = {
+            ExtendedFloatingActionButton(
+                onClick = { navController.navigate(Screen.NewFile.route) },
+                containerColor = Color(0xFF3B82F6),
+                contentColor = Color.White,
+                shape = RoundedCornerShape(16.dp),
+                modifier = Modifier.padding(8.dp)
+            ) {
+                Icon(Icons.Default.Add, contentDescription = null)
+                Text("New File", modifier = Modifier.padding(start = 8.dp))
+            }
         }
-        item {
-            SearchSection()
-        }
-        item {
-            QuickActionsSection(navController)
-        }
-        item {
-            Text(
-                text = "Recent Files",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold
-            )
-        }
-        if (recentFiles.isEmpty()) {
+    ) { innerPadding ->
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+                .background(MaterialTheme.colorScheme.background),
+            contentPadding = PaddingValues(20.dp),
+            verticalArrangement = Arrangement.spacedBy(24.dp)
+        ) {
             item {
-                EmptyState()
+                HeroCard()
             }
-        } else {
-            items(recentFiles.take(5)) { file ->
-                RecentFileItem(file, onClick = {
-                    viewModel.openFile(file.path)
-                    navController.navigate(Screen.Editor.createRoute(file.path))
-                })
+            
+            item {
+                QuickActionGrid(navController)
             }
-        }
-        item {
-            StatsCard(recentFiles.size)
+
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Continue Working",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold
+                    )
+                    TextButton(onClick = { navController.navigate(Screen.Files.route) }) {
+                        Text("View All", color = Color(0xFF3B82F6))
+                    }
+                }
+            }
+
+            if (recentFiles.isEmpty()) {
+                item {
+                    EmptyRecentState()
+                }
+            } else {
+                items(recentFiles.take(4)) { file ->
+                    PremiumFileCard(file) {
+                        viewModel.openFile(file.path)
+                        navController.navigate(Screen.Editor.createRoute(file.path))
+                    }
+                }
+            }
+            
+            item {
+                Spacer(modifier = Modifier.height(60.dp))
+            }
         }
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HeaderSection() {
-    Column {
-        Text(
-            text = "Good morning 👋",
-            style = MaterialTheme.typography.bodyMedium,
-            color = Color.Gray
-        )
-        Text(
-            text = "Textbook",
-            style = MaterialTheme.typography.headlineLarge,
-            fontWeight = FontWeight.Bold
-        )
-    }
-}
-
-@Composable
-fun SearchSection() {
-    OutlinedTextField(
-        value = "",
-        onValueChange = {},
-        modifier = Modifier.fillMaxWidth(),
-        placeholder = { Text("Search files...") },
-        leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
-        shape = RoundedCornerShape(12.dp),
-        colors = TextFieldDefaults.colors(
-            unfocusedContainerColor = Color(0xFFF5F5F5),
-            focusedContainerColor = Color(0xFFF5F5F5),
-            unfocusedIndicatorColor = Color.Transparent,
-            focusedIndicatorColor = Color.Transparent
-        )
+fun HomeTopBar() {
+    TopAppBar(
+        title = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    Icons.Rounded.MenuBook,
+                    contentDescription = null,
+                    tint = Color(0xFF3B82F6),
+                    modifier = Modifier.size(28.dp)
+                )
+                Spacer(Modifier.width(8.dp))
+                Text("TextBook", fontWeight = FontWeight.ExtraBold)
+            }
+        },
+        actions = {
+            IconButton(onClick = { /* Search */ }) { Icon(Icons.Rounded.Search, null) }
+            IconButton(onClick = { /* Notifications */ }) { Icon(Icons.Rounded.NotificationsNone, null) }
+            Box(
+                modifier = Modifier
+                    .padding(end = 12.dp)
+                    .size(32.dp)
+                    .clip(CircleShape)
+                    .background(Color(0xFF7C3AED)),
+                contentAlignment = Alignment.Center
+            ) {
+                Text("JD", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+            }
+        },
+        colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
     )
 }
 
 @Composable
-fun QuickActionsSection(navController: NavController) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween
-    ) {
-        QuickActionItem("New", Icons.Default.Add, Color(0xFFE3F2FD), Color(0xFF2196F3)) {
-            navController.navigate(Screen.NewFile.route)
-        }
-        QuickActionItem("Open", Icons.Default.FolderOpen, Color(0xFFF3E5F5), Color(0xFF9C27B0)) {
-            navController.navigate(Screen.Files.route)
-        }
-        QuickActionItem("Kotlin", Icons.Default.Code, Color(0xFFFFF3E0), Color(0xFFFF9800)) {
-            // Quick create kotlin file or filter
-        }
-        QuickActionItem("History", Icons.Default.History, Color(0xFFE8F5E9), Color(0xFF4CAF50)) {
-            navController.navigate(Screen.History.route)
-        }
-    }
-}
-
-@Composable
-fun QuickActionItem(label: String, icon: ImageVector, bgColor: Color, iconColor: Color, onClick: () -> Unit) {
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        IconButton(
-            onClick = onClick,
-            modifier = Modifier
-                .size(64.dp)
-                .clip(RoundedCornerShape(16.dp))
-                .background(bgColor)
-        ) {
-            Icon(icon, contentDescription = label, tint = iconColor)
-        }
-        Text(text = label, style = MaterialTheme.typography.bodySmall)
-    }
-}
-
-@Composable
-fun RecentFileItem(file: TextFile, onClick: () -> Unit) {
+fun HeroCard() {
     Card(
-        onClick = onClick,
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(180.dp),
+        shape = RoundedCornerShape(22.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFF0F172A))
+    ) {
+        Box(modifier = Modifier.fillMaxSize()) {
+            // Background Gradient Glow
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .size(150.dp)
+                    .background(
+                        Brush.radialGradient(
+                            listOf(Color(0xFF3B82F6).copy(alpha = 0.3f), Color.Transparent)
+                        )
+                    )
+            )
+            
+            Column(
+                modifier = Modifier
+                    .padding(24.dp)
+                    .fillMaxHeight(),
+                verticalArrangement = Arrangement.Center
+            ) {
+                Text(
+                    "Start Writing\nWithout Limits",
+                    color = Color.White,
+                    fontSize = 24.sp,
+                    fontWeight = FontWeight.Bold,
+                    lineHeight = 30.sp
+                )
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    "Create, edit, compare versions\nand recover your work anytime.",
+                    color = Color.White.copy(alpha = 0.6f),
+                    fontSize = 13.sp,
+                    lineHeight = 18.sp
+                )
+            }
+            
+            // Abstract Illustration Placeholder
+            Icon(
+                Icons.Rounded.AutoMode,
+                contentDescription = null,
+                tint = Color(0xFF06B6D4).copy(alpha = 0.2f),
+                modifier = Modifier
+                    .align(Alignment.CenterEnd)
+                    .padding(end = 16.dp)
+                    .size(100.dp)
+            )
+        }
+    }
+}
+
+@Composable
+fun QuickActionGrid(navController: NavController) {
+    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            QuickActionPremiumItem(Modifier.weight(1f), "Recent", Icons.Rounded.AccessTime, Color(0xFFE0F2FE), Color(0xFF3B82F6)) {
+                navController.navigate(Screen.Files.route)
+            }
+            QuickActionPremiumItem(Modifier.weight(1f), "Kotlin", Icons.Rounded.Code, Color(0xFFF5F3FF), Color(0xFF7C3AED)) {
+                // Kotlin specific
+            }
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            QuickActionPremiumItem(Modifier.weight(1f), "Markdown", Icons.Rounded.Description, Color(0xFFECFEFF), Color(0xFF06B6D4)) {
+                // Markdown specific
+            }
+            QuickActionPremiumItem(Modifier.weight(1f), "History", Icons.Rounded.History, Color(0xFFF0FDF4), Color(0xFF10B981)) {
+                navController.navigate(Screen.History.route)
+            }
+        }
+    }
+}
+
+@Composable
+fun QuickActionPremiumItem(modifier: Modifier, label: String, icon: ImageVector, bgColor: Color, tint: Color, onClick: () -> Unit) {
+    Surface(
+        modifier = modifier.clickable(onClick = onClick),
+        shape = RoundedCornerShape(18.dp),
+        color = bgColor
+    ) {
+        Row(
+            modifier = Modifier.padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(24.dp))
+            Spacer(Modifier.width(12.dp))
+            Text(label, fontWeight = FontWeight.Bold, fontSize = 14.sp, color = Color(0xFF1E293B))
+        }
+    }
+}
+
+@Composable
+fun PremiumFileCard(file: TextFile, onClick: () -> Unit) {
+    Card(
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
+        shape = RoundedCornerShape(18.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Row(
             modifier = Modifier.padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(16.dp)
+            verticalAlignment = Alignment.CenterVertically
         ) {
             Box(
                 modifier = Modifier
-                    .size(40.dp)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(Color(0xFFFFF3E0)),
+                    .size(48.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(Color(0xFFF1F5F9)),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(Icons.Default.Description, contentDescription = null, tint = Color(0xFFFF9800))
+                Icon(
+                    when(file.extension.lowercase()) {
+                        "kt" -> Icons.Rounded.Code
+                        "md" -> Icons.Rounded.Description
+                        else -> Icons.Rounded.Article
+                    },
+                    contentDescription = null,
+                    tint = Color(0xFF64748B)
+                )
             }
+            
+            Spacer(Modifier.width(16.dp))
+            
             Column(modifier = Modifier.weight(1f)) {
-                Text(text = file.name, fontWeight = FontWeight.Bold)
-                Text(text = "${file.extension.uppercase()} • ${file.path}", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+                Text(file.name, fontWeight = FontWeight.Bold, fontSize = 16.sp, color = Color(0xFF0F172A))
+                Text(
+                    "${file.extension.uppercase()} • Last modified 2h ago", 
+                    fontSize = 12.sp, 
+                    color = Color(0xFF64748B)
+                )
             }
-            Icon(Icons.Default.ChevronRight, contentDescription = null, tint = Color.Gray)
+            
+            IconButton(onClick = { /* Toggle Favorite */ }) {
+                Icon(
+                    if (file.isFavorite) Icons.Default.Star else Icons.Default.StarBorder,
+                    contentDescription = null,
+                    tint = if (file.isFavorite) Color(0xFFF59E0B) else Color(0xFFCBD5E1)
+                )
+            }
         }
     }
 }
 
 @Composable
-fun EmptyState() {
+fun EmptyRecentState() {
     Column(
-        modifier = Modifier.fillMaxWidth().padding(24.dp),
+        modifier = Modifier.fillMaxWidth().padding(40.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Text("No recent files", color = Color.Gray)
-    }
-}
-
-@Composable
-fun StatsCard(fileCount: Int) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFF2196F3))
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text(text = "Overview", color = Color.White.copy(alpha = 0.7f), fontSize = 12.sp)
-            Spacer(modifier = Modifier.height(8.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(24.dp)) {
-                StatItem(fileCount.toString(), "Files")
-                StatItem("0", "Commits")
-                StatItem("1", "Project")
-            }
-        }
-    }
-}
-
-@Composable
-fun StatItem(value: String, label: String) {
-    Column {
-        Text(text = value, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 20.sp)
-        Text(text = label, color = Color.White.copy(alpha = 0.7f), fontSize = 12.sp)
+        Icon(Icons.Rounded.AutoMode, null, modifier = Modifier.size(60.dp), tint = Color(0xFFCBD5E1))
+        Spacer(Modifier.height(16.dp))
+        Text("No recent documents", fontWeight = FontWeight.Medium, color = Color(0xFF94A3B8))
+        Text("Your created files will appear here", fontSize = 12.sp, color = Color(0xFFCBD5E1))
     }
 }
