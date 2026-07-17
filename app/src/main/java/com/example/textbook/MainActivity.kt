@@ -105,34 +105,22 @@ fun MainScreen(viewModel: MainViewModel) {
             bottomBar = {
                 NavigationBar(
                     containerColor = MaterialTheme.colorScheme.surface,
-                    tonalElevation = 4.dp,
-                    modifier = Modifier.height(80.dp)
+                    tonalElevation = 0.dp,
+                    windowInsets = WindowInsets(0, 0, 0, 0)
                 ) {
                     val navBackStackEntry by navController.currentBackStackEntryAsState()
                     val currentDestination = navBackStackEntry?.destination
                     bottomBarItems.forEach { screen ->
                         NavigationBarItem(
-                            icon = { 
-                                Icon(
-                                    imageVector = screen.icon,
-                                    contentDescription = screen.title,
-                                    modifier = Modifier.size(26.dp)
-                                ) 
-                            },
-                            label = { 
-                                Text(
-                                    text = screen.title,
-                                    style = MaterialTheme.typography.labelMedium,
-                                    fontWeight = FontWeight.Bold
-                                ) 
-                            },
+                            icon = { Icon(imageVector = screen.icon, contentDescription = null) },
+                            label = { Text(text = screen.title) },
                             selected = currentDestination?.hierarchy?.any { it.route == screen.route } == true,
                             colors = NavigationBarItemDefaults.colors(
                                 selectedIconColor = Color(0xFF3B82F6),
                                 selectedTextColor = Color(0xFF3B82F6),
-                                indicatorColor = Color(0xFF3B82F6).copy(alpha = 0.12f),
-                                unselectedIconColor = Color(0xFF64748B),
-                                unselectedTextColor = Color(0xFF64748B)
+                                indicatorColor = Color(0xFF3B82F6).copy(alpha = 0.1f),
+                                unselectedIconColor = Color.Gray,
+                                unselectedTextColor = Color.Gray
                             ),
                             onClick = {
                                 navController.navigate(screen.route) {

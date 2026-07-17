@@ -1,5 +1,6 @@
 package com.example.textbook.ui.screens
 
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -64,7 +65,7 @@ fun HomeScreen(navController: NavController, viewModel: MainViewModel, onMenuCli
             verticalArrangement = Arrangement.spacedBy(24.dp)
         ) {
             item {
-                HeroCard()
+                HeroCard(onStartClick = { navController.navigate(Screen.NewFile.route) })
             }
 
             item {
@@ -183,50 +184,63 @@ fun SearchSection(query: String, onQueryChange: (String) -> Unit) {
 }
 
 @Composable
-fun HeroCard() {
+fun HeroCard(onStartClick: () -> Unit) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .height(200.dp),
-        shape = RoundedCornerShape(22.dp),
+        shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.cardColors(containerColor = Color(0xFF0F172A))
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
+            // Refined Radial Gradient for a "Nice" Glow
             Box(
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
-                    .size(180.dp)
+                    .size(220.dp)
                     .background(
                         Brush.radialGradient(
-                            listOf(Color(0xFF3B82F6).copy(alpha = 0.25f), Color.Transparent)
+                            colors = listOf(
+                                Color(0xFF3B82F6).copy(alpha = 0.4f),
+                                Color(0xFF7C3AED).copy(alpha = 0.1f),
+                                Color.Transparent
+                            ),
+                            center = Offset(500f, 500f)
                         )
                     )
             )
             
             Row(
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier.fillMaxSize().padding(horizontal = 24.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column(
-                    modifier = Modifier
-                        .padding(24.dp)
-                        .weight(1.2f),
-                    verticalArrangement = Arrangement.Center
+                    modifier = Modifier.weight(1.3f),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Text(
-                        "Start Writing\nWithout Limits",
+                        text = "Start Writing\nWithout Limits",
                         color = Color.White,
-                        fontSize = 26.sp,
+                        style = MaterialTheme.typography.headlineSmall,
                         fontWeight = FontWeight.ExtraBold,
                         lineHeight = 32.sp
                     )
-                    Spacer(Modifier.height(12.dp))
                     Text(
-                        "Create, edit, and recover\nyour work with ease.",
-                        color = Color.White.copy(alpha = 0.6f),
-                        fontSize = 14.sp,
-                        lineHeight = 20.sp
+                        text = "The ultimate mobile workspace\nfor developers.",
+                        color = Color.White.copy(alpha = 0.7f),
+                        style = MaterialTheme.typography.bodySmall,
+                        lineHeight = 18.sp
                     )
+                    Spacer(Modifier.height(8.dp))
+                    Button(
+                        onClick = onStartClick,
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF3B82F6)),
+                        shape = RoundedCornerShape(12.dp),
+                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 0.dp),
+                        modifier = Modifier.height(36.dp)
+                    ) {
+                        Text("Get Started", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    }
                 }
                 
                 Image(
@@ -234,8 +248,7 @@ fun HeroCard() {
                     contentDescription = null,
                     modifier = Modifier
                         .weight(1f)
-                        .size(150.dp)
-                        .padding(end = 12.dp),
+                        .size(140.dp),
                     contentScale = ContentScale.Fit
                 )
             }
