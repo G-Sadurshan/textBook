@@ -106,10 +106,14 @@ fun HomeScreen(navController: NavController, viewModel: MainViewModel, onMenuCli
                 }
             } else {
                 items(displayFiles) { file ->
-                    PremiumFileCard(file) {
-                        viewModel.openFile(file.path)
-                        navController.navigate(Screen.Editor.createRoute(file.path))
-                    }
+                    PremiumFileCard(
+                        file = file,
+                        onFavoriteToggle = { viewModel.toggleFavorite(file) },
+                        onClick = {
+                            viewModel.openFile(file.path)
+                            navController.navigate(Screen.Editor.createRoute(file.path))
+                        }
+                    )
                 }
             }
             
@@ -152,25 +156,27 @@ fun HomeTopBar(onMenuClick: () -> Unit) {
 
 @Composable
 fun SearchSection(query: String, onQueryChange: (String) -> Unit) {
-    TextField(
+    OutlinedTextField(
         value = query,
         onValueChange = onQueryChange,
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 4.dp),
         placeholder = { Text("Search your files...", color = Color.Gray, fontSize = 14.sp) },
         leadingIcon = { Icon(Icons.Rounded.Search, contentDescription = null, tint = Color(0xFF3B82F6)) },
         trailingIcon = {
             if (query.isNotEmpty()) {
                 IconButton(onClick = { onQueryChange("") }) {
-                    Icon(Icons.Default.Clear, contentDescription = "Clear")
+                    Icon(Icons.Default.Clear, contentDescription = "Clear", tint = Color.Gray)
                 }
             }
         },
         shape = RoundedCornerShape(16.dp),
-        colors = TextFieldDefaults.colors(
-            unfocusedContainerColor = Color(0xFFF1F5F9),
-            focusedContainerColor = Color(0xFFF1F5F9),
-            unfocusedIndicatorColor = Color.Transparent,
-            focusedIndicatorColor = Color.Transparent
+        colors = OutlinedTextFieldDefaults.colors(
+            unfocusedContainerColor = Color.White,
+            focusedContainerColor = Color.White,
+            unfocusedBorderColor = Color(0xFFE2E8F0),
+            focusedBorderColor = Color(0xFF3B82F6)
         ),
         singleLine = true
     )
@@ -246,11 +252,13 @@ fun QuickActionGrid(navController: NavController, viewModel: MainViewModel) {
             }
             QuickActionPremiumItem(Modifier.weight(1f), "Kotlin", Icons.Rounded.Code, Color(0xFFF5F3FF), Color(0xFF7C3AED)) {
                 viewModel.updateFileSearchQuery(".kt")
+                navController.navigate(Screen.Files.route)
             }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
             QuickActionPremiumItem(Modifier.weight(1f), "Markdown", Icons.Rounded.Description, Color(0xFFECFEFF), Color(0xFF06B6D4)) {
                 viewModel.updateFileSearchQuery(".md")
+                navController.navigate(Screen.Files.route)
             }
             QuickActionPremiumItem(Modifier.weight(1f), "History", Icons.Rounded.History, Color(0xFFF0FDF4), Color(0xFF10B981)) {
                 navController.navigate(Screen.History.route)
@@ -286,7 +294,7 @@ fun QuickActionPremiumItem(modifier: Modifier, label: String, icon: ImageVector,
 }
 
 @Composable
-fun PremiumFileCard(file: TextFile, onClick: () -> Unit) {
+fun PremiumFileCard(file: TextFile, onFavoriteToggle: () -> Unit, onClick: () -> Unit) {
     Card(
         modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
         shape = RoundedCornerShape(18.dp),
@@ -326,10 +334,10 @@ fun PremiumFileCard(file: TextFile, onClick: () -> Unit) {
                 )
             }
             
-            IconButton(onClick = { /* Toggle Favorite */ }) {
+            IconButton(onClick = onFavoriteToggle) {
                 Icon(
-                    if (file.isFavorite) Icons.Default.Star else Icons.Default.StarBorder,
-                    contentDescription = null,
+                    imageVector = if (file.isFavorite) Icons.Rounded.Star else Icons.Rounded.StarBorder,
+                    contentDescription = "Toggle Favorite",
                     tint = if (file.isFavorite) Color(0xFFF59E0B) else Color(0xFFCBD5E1)
                 )
             }

@@ -103,46 +103,47 @@ fun MainScreen(viewModel: MainViewModel) {
     ) {
         Scaffold(
             bottomBar = {
-                Surface(
-                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f),
-                    tonalElevation = 8.dp,
-                    shadowElevation = 8.dp
+                NavigationBar(
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    tonalElevation = 4.dp,
+                    modifier = Modifier.height(80.dp)
                 ) {
-                    NavigationBar(
-                        containerColor = Color.Transparent,
-                        modifier = Modifier.height(70.dp)
-                    ) {
-                        val navBackStackEntry by navController.currentBackStackEntryAsState()
-                        val currentDestination = navBackStackEntry?.destination
-                        bottomBarItems.forEach { screen ->
-                            NavigationBarItem(
-                                icon = { 
-                                    Icon(
-                                        if (currentDestination?.hierarchy?.any { it.route == screen.route } == true) 
-                                            screen.icon 
-                                        else 
-                                            screen.icon, // Could use outlined version if available
-                                        contentDescription = null 
-                                    ) 
-                                },
-                                label = { Text(screen.title, fontSize = 11.sp, fontWeight = FontWeight.Medium) },
-                                selected = currentDestination?.hierarchy?.any { it.route == screen.route } == true,
-                                colors = NavigationBarItemDefaults.colors(
-                                    selectedIconColor = Color(0xFF3B82F6),
-                                    selectedTextColor = Color(0xFF3B82F6),
-                                    indicatorColor = Color(0xFFE0F2FE)
-                                ),
-                                onClick = {
-                                    navController.navigate(screen.route) {
-                                        popUpTo(navController.graph.findStartDestination().id) {
-                                            saveState = true
-                                        }
-                                        launchSingleTop = true
-                                        restoreState = true
+                    val navBackStackEntry by navController.currentBackStackEntryAsState()
+                    val currentDestination = navBackStackEntry?.destination
+                    bottomBarItems.forEach { screen ->
+                        NavigationBarItem(
+                            icon = { 
+                                Icon(
+                                    imageVector = screen.icon,
+                                    contentDescription = screen.title,
+                                    modifier = Modifier.size(26.dp)
+                                ) 
+                            },
+                            label = { 
+                                Text(
+                                    text = screen.title,
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = FontWeight.Bold
+                                ) 
+                            },
+                            selected = currentDestination?.hierarchy?.any { it.route == screen.route } == true,
+                            colors = NavigationBarItemDefaults.colors(
+                                selectedIconColor = Color(0xFF3B82F6),
+                                selectedTextColor = Color(0xFF3B82F6),
+                                indicatorColor = Color(0xFF3B82F6).copy(alpha = 0.12f),
+                                unselectedIconColor = Color(0xFF64748B),
+                                unselectedTextColor = Color(0xFF64748B)
+                            ),
+                            onClick = {
+                                navController.navigate(screen.route) {
+                                    popUpTo(navController.graph.findStartDestination().id) {
+                                        saveState = true
                                     }
+                                    launchSingleTop = true
+                                    restoreState = true
                                 }
-                            )
-                        }
+                            }
+                        )
                     }
                 }
             }
@@ -157,7 +158,10 @@ fun MainScreen(viewModel: MainViewModel) {
                         scope.launch { drawerState.open() }
                     }) 
                 }
-                composable(Screen.Files.route) { FilesScreen(navController, viewModel) }
+                composable(Screen.Files.route) { 
+                    LaunchedEffect(Unit) { viewModel.setFilterType(MainViewModel.FilterType.ALL) }
+                    FilesScreen(navController, viewModel) 
+                }
                 composable(Screen.Editor.route) { backStackEntry ->
                     val encodedPath = backStackEntry.arguments?.getString("filePath") ?: ""
                     val filePath = Screen.Editor.parsePath(encodedPath)
@@ -179,10 +183,12 @@ fun MainScreen(viewModel: MainViewModel) {
                     DiffViewerScreen(navController, diffData?.first ?: "", diffData?.second ?: "")
                 }
                 composable(Screen.Favorites.route) { 
-                    FilesScreen(navController, viewModel) // Filter logic can be added to viewModel
+                    LaunchedEffect(Unit) { viewModel.setFilterType(MainViewModel.FilterType.FAVORITES) }
+                    FilesScreen(navController, viewModel)
                 }
                 composable(Screen.Trash.route) { 
-                    FilesScreen(navController, viewModel) // Filter logic can be added to viewModel
+                    LaunchedEffect(Unit) { viewModel.setFilterType(MainViewModel.FilterType.TRASH) }
+                    FilesScreen(navController, viewModel)
                 }
                 composable(Screen.Storage.route) { 
                     FilesScreen(navController, viewModel) // Placeholder

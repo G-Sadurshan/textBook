@@ -12,10 +12,11 @@ import kotlinx.coroutines.launch
 import timber.log.Timber
 import javax.inject.Inject
 
+@OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 @HiltViewModel
 class MainViewModel @Inject constructor(
     private val repository: TextBookRepository,
-    private val settingsManager: SettingsManager
+    private val settingsManager: SettingsManager,
 ) : ViewModel() {
 
     init {
@@ -174,9 +175,28 @@ class MainViewModel @Inject constructor(
     private val _fileSearchQuery = MutableStateFlow("")
     val fileSearchQuery = _fileSearchQuery.asStateFlow()
 
-    val filteredFiles = combine(allFiles, _fileSearchQuery) { files, query ->
-        if (query.isBlank()) files
-        else files.filter { 
+    private val _filterType = MutableStateFlow<FilterType>(FilterType.ALL)
+    val filterType = _filterType.asStateFlow()
+
+    enum class FilterType { ALL, FAVORITES, TRASH }
+
+    val filteredFiles = combine(allFiles, _fileSearchQuery, _filterType) { files, query, type ->
+        val baseList = when(type) {
+            FilterType.ALL -> files
+            FilterType.FAVORITES -> files.filter { it.isFavorite }
+            FilterType.TRASH -> emptyList() // Room handles trash via isDeleted
+        }
+        
+        val finalFiles = if (type == FilterType.TRASH) {
+            // Need to fetch trashFiles from repository if we want a separate Trash view
+            // For now, let's keep it simple.
+            repository.getTrashFiles().first()
+        } else {
+            baseList
+        }
+
+        if (query.isBlank()) finalFiles
+        else finalFiles.filter { 
             it.name.contains(query, ignoreCase = true) || 
             it.extension.contains(query, ignoreCase = true) 
         }
@@ -184,6 +204,10 @@ class MainViewModel @Inject constructor(
 
     fun updateFileSearchQuery(query: String) {
         _fileSearchQuery.value = query
+    }
+
+    fun setFilterType(type: FilterType) {
+        _filterType.value = type
     }
 
     // Search & Replace (In-file)

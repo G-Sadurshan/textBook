@@ -22,12 +22,31 @@ import com.example.textbook.domain.TextFile
 import com.example.textbook.ui.MainViewModel
 import com.example.textbook.ui.Screen
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FilesScreen(navController: NavController, viewModel: MainViewModel) {
     val files by viewModel.filteredFiles.collectAsState()
     val searchQuery by viewModel.fileSearchQuery.collectAsState()
+    val filterType by viewModel.filterType.collectAsState()
+
+    val title = when(filterType) {
+        MainViewModel.FilterType.ALL -> "Explorer"
+        MainViewModel.FilterType.FAVORITES -> "Favorites"
+        MainViewModel.FilterType.TRASH -> "Trash"
+    }
 
     Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text(title, fontWeight = FontWeight.Bold) },
+                navigationIcon = {
+                    IconButton(onClick = { navController.popBackStack() }) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
+            )
+        },
         floatingActionButton = {
             FloatingActionButton(
                 onClick = { navController.navigate(Screen.NewFile.route) }, 
