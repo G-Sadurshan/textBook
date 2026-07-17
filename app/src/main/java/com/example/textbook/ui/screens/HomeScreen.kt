@@ -10,6 +10,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -19,10 +21,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import com.example.textbook.data.FileEntity
+import com.example.textbook.ui.MainViewModel
 import com.example.textbook.ui.Screen
 
 @Composable
-fun HomeScreen(navController: NavController) {
+fun HomeScreen(navController: NavController, viewModel: MainViewModel) {
+    val recentFiles by viewModel.allFilesList.collectAsState()
+
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
@@ -45,13 +51,14 @@ fun HomeScreen(navController: NavController) {
                 fontWeight = FontWeight.Bold
             )
         }
-        items(recentFiles) { file ->
+        items(recentFiles.take(5)) { file ->
             RecentFileItem(file, onClick = {
+                viewModel.openFile(file.path)
                 navController.navigate(Screen.Editor.createRoute(file.name))
             })
         }
         item {
-            StatsCard()
+            StatsCard(recentFiles.size)
         }
     }
 }
@@ -124,15 +131,8 @@ fun QuickActionItem(label: String, icon: ImageVector, bgColor: Color, iconColor:
     }
 }
 
-data class RecentFile(val name: String, val type: String, val lastModified: String)
-val recentFiles = listOf(
-    RecentFile("Main.kt", "Kotlin", "2m ago"),
-    RecentFile("README.md", "Markdown", "1h ago"),
-    RecentFile("Utils.kt", "Kotlin", "3h ago")
-)
-
 @Composable
-fun RecentFileItem(file: RecentFile, onClick: () -> Unit) {
+fun RecentFileItem(file: FileEntity, onClick: () -> Unit) {
     Card(
         onClick = onClick,
         modifier = Modifier.fillMaxWidth(),
@@ -156,7 +156,7 @@ fun RecentFileItem(file: RecentFile, onClick: () -> Unit) {
             }
             Column(modifier = Modifier.weight(1f)) {
                 Text(text = file.name, fontWeight = FontWeight.Bold)
-                Text(text = "${file.type} • ${file.lastModified}", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+                Text(text = "${file.extension} • ${file.path}", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
             }
             Icon(Icons.Default.ChevronRight, contentDescription = null, tint = Color.Gray)
         }
@@ -164,19 +164,19 @@ fun RecentFileItem(file: RecentFile, onClick: () -> Unit) {
 }
 
 @Composable
-fun StatsCard() {
+fun StatsCard(fileCount: Int) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = Color(0xFF2196F3))
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            Text(text = "This week", color = Color.White.copy(alpha = 0.7f), fontSize = 12.sp)
+            Text(text = "Overview", color = Color.White.copy(alpha = 0.7f), fontSize = 12.sp)
             Spacer(modifier = Modifier.height(8.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(24.dp)) {
-                StatItem("12", "Files")
-                StatItem("8", "Commits")
-                StatItem("3", "Projects")
+                StatItem(fileCount.toString(), "Files")
+                StatItem("0", "Commits")
+                StatItem("1", "Project")
             }
         }
     }

@@ -9,6 +9,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -17,20 +19,23 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import com.example.textbook.ui.MainViewModel
 import com.example.textbook.ui.Screen
 
 @Composable
-fun FilesScreen(navController: NavController) {
+fun FilesScreen(navController: NavController, viewModel: MainViewModel) {
+    val files by viewModel.allFilesList.collectAsState()
+
     Scaffold(
         floatingActionButton = {
-            FloatingActionButton(onClick = { /* New File */ }, containerColor = Color(0xFF2196F3)) {
+            FloatingActionButton(onClick = { navController.navigate(Screen.NewFile.route) }, containerColor = Color(0xFF2196F3)) {
                 Icon(Icons.Default.Add, contentDescription = "New File", tint = Color.White)
             }
         }
     ) { innerPadding ->
         Column(modifier = Modifier.padding(innerPadding).fillMaxSize().padding(16.dp)) {
             Text(text = "Explorer", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-            Text(text = "ScriptFlow / root", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+            Text(text = "Internal Storage", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
             
             Spacer(modifier = Modifier.height(16.dp))
             
@@ -44,11 +49,12 @@ fun FilesScreen(navController: NavController) {
             Spacer(modifier = Modifier.height(16.dp))
             
             LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                item { ExplorerFolderItem("src", "8 files") }
-                item { ExplorerFolderItem("assets", "12 files") }
-                item { ExplorerFileItem("Main.kt", "Kotlin • 4.2kb") { navController.navigate(Screen.Editor.createRoute("Main.kt")) } }
-                item { ExplorerFileItem("README.md", "Markdown • 1.1kb") { navController.navigate(Screen.Editor.createRoute("README.md")) } }
-                item { ExplorerFileItem("build.gradle", "Gradle • 2kb") { navController.navigate(Screen.Editor.createRoute("build.gradle")) } }
+                items(files) { file ->
+                    ExplorerFileItem(file.name, "${file.extension.uppercase()} • ${file.path}") { 
+                        viewModel.openFile(file.path)
+                        navController.navigate(Screen.Editor.createRoute(file.path)) 
+                    }
+                }
             }
             
             Spacer(modifier = Modifier.weight(1f))

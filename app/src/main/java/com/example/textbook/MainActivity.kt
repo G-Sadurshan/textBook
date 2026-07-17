@@ -11,6 +11,8 @@ import androidx.compose.ui.Modifier
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.*
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.textbook.ui.MainViewModel
 import com.example.textbook.ui.Screen
 import com.example.textbook.ui.screens.*
 import com.example.textbook.ui.theme.TextBookTheme
@@ -21,14 +23,15 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             TextBookTheme {
-                MainScreen()
+                val viewModel: MainViewModel = viewModel()
+                MainScreen(viewModel)
             }
         }
     }
 }
 
 @Composable
-fun MainScreen() {
+fun MainScreen(viewModel: MainViewModel) {
     val navController = rememberNavController()
     val items = listOf(
         Screen.Home,
@@ -43,8 +46,6 @@ fun MainScreen() {
                 val navBackStackEntry by navController.currentBackStackEntryAsState()
                 val currentDestination = navBackStackEntry?.destination
                 items.forEach { screen ->
-                    // For Editor, we might not want it in the bottom bar if it's always specific to a file
-                    // But the images show "Editor" in bottom bar.
                     NavigationBarItem(
                         icon = { Icon(screen.icon, contentDescription = null) },
                         label = { Text(screen.title) },
@@ -68,17 +69,23 @@ fun MainScreen() {
             startDestination = Screen.Home.route,
             modifier = Modifier.padding(innerPadding)
         ) {
-            composable(Screen.Home.route) { HomeScreen(navController) }
-            composable(Screen.Files.route) { FilesScreen(navController) }
+            composable(Screen.Home.route) { HomeScreen(navController, viewModel) }
+            composable(Screen.Files.route) { FilesScreen(navController, viewModel) }
             composable(Screen.Editor.route) { backStackEntry ->
                 val filePath = backStackEntry.arguments?.getString("filePath") ?: ""
-                EditorScreen(navController, filePath)
+                LaunchedEffect(filePath) {
+                    if (filePath.isNotEmpty()) viewModel.openFile(filePath)
+                }
+                EditorScreen(navController, viewModel)
             }
             composable(Screen.History.route) { HistoryScreen(navController) }
             composable(Screen.Settings.route) { SettingsScreen(navController) }
-            composable(Screen.SearchReplace.route) { SearchReplaceScreen(navController) }
+            composable(Screen.SearchReplace.route) { SearchReplaceScreen(navController, viewModel) }
             composable(Screen.NewFile.route) { NewFileScreen(navController) }
-            composable(Screen.MarkdownPreview.route) { MarkdownPreviewScreen(navController, "# Hello\nThis is a preview.") }
+            composable(Screen.MarkdownPreview.route) { 
+                val file by viewModel.currentFile.collectAsState()
+                MarkdownPreviewScreen(navController, file?.content ?: "No content") 
+            }
         }
     }
 }

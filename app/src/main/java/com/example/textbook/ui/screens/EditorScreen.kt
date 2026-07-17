@@ -10,35 +10,42 @@ import androidx.compose.material.icons.automirrored.filled.Undo
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import com.example.textbook.editor.SyntaxHighlightTransformation
+import com.example.textbook.ui.MainViewModel
 
 @Composable
-fun EditorScreen(navController: NavController, filePath: String) {
-    var text by remember { mutableStateOf("package com.scriptflow\n\nclass FileManager {\n    private val repo = Repository()\n\n    fun saveFile(file: File): Boolean {\n        if (file.name.isEmpty()) return false\n        repo.save(file)\n        return true\n    }\n}") }
+fun EditorScreen(navController: NavController, viewModel: MainViewModel) {
+    val file by viewModel.currentFile.collectAsState()
+    var text by remember(file) { mutableStateOf(file?.content ?: "") }
 
     Scaffold(
         topBar = {
-            EditorTopBar(navController, filePath)
+            EditorTopBar(navController, file?.name ?: "No File")
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = { /* Save */ }, containerColor = Color(0xFF2196F3)) {
+            FloatingActionButton(onClick = { viewModel.saveFile(text, "Auto Save") }, containerColor = Color(0xFF2196F3)) {
                 Icon(Icons.Default.Save, contentDescription = "Save", tint = Color.White)
             }
         },
         bottomBar = {
-            EditorBottomBar()
+            EditorBottomBar(file?.extension ?: "txt")
         }
     ) { innerPadding ->
         Column(modifier = Modifier.padding(innerPadding).fillMaxSize()) {
-            FileTab(filePath)
-            EditorArea(text) { text = it }
+            FileTab(file?.name ?: "Unnamed")
+            EditorArea(text, file?.extension ?: "txt") { 
+                text = it 
+                viewModel.cacheForRecovery(it)
+            }
         }
     }
 }
@@ -108,7 +115,7 @@ fun FileTab(fileName: String) {
 }
 
 @Composable
-fun EditorArea(text: String, onTextChange: (String) -> Unit) {
+fun EditorArea(text: String, extension: String, onTextChange: (String) -> Unit) {
     Row(modifier = Modifier.fillMaxSize()) {
         // Line Numbers
         Column(
@@ -130,6 +137,7 @@ fun EditorArea(text: String, onTextChange: (String) -> Unit) {
             value = text,
             onValueChange = onTextChange,
             modifier = Modifier.fillMaxSize(),
+            visualTransformation = SyntaxHighlightTransformation(extension),
             colors = TextFieldDefaults.colors(
                 unfocusedContainerColor = Color.White,
                 focusedContainerColor = Color.White,
@@ -145,7 +153,7 @@ fun EditorArea(text: String, onTextChange: (String) -> Unit) {
 }
 
 @Composable
-fun EditorBottomBar() {
+fun EditorBottomBar(extension: String) {
     Surface(
         color = Color(0xFFF5F5F5),
         modifier = Modifier.fillMaxWidth()
@@ -160,7 +168,7 @@ fun EditorBottomBar() {
             }
             Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                 Text(text = "UTF-8", fontSize = 10.sp, color = Color.Gray)
-                Text(text = "Kotlin", fontSize = 10.sp, color = Color.Gray)
+                Text(text = extension.uppercase(), fontSize = 10.sp, color = Color.Gray)
             }
         }
     }

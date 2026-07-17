@@ -19,7 +19,16 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _currentFile = MutableStateFlow<FileEntity?>(null)
     val currentFile: StateFlow<FileEntity?> = _currentFile
 
-    val allFiles = dao.getAllFiles()
+    private val _allFilesList = MutableStateFlow<List<FileEntity>>(emptyList())
+    val allFilesList: StateFlow<List<FileEntity>> = _allFilesList
+
+    init {
+        viewModelScope.launch {
+            dao.getAllFiles().collect {
+                _allFilesList.value = it
+            }
+        }
+    }
 
     fun openFile(path: String) {
         viewModelScope.launch {
@@ -78,5 +87,34 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             dao.saveRecoveryData(CrashRecoveryEntity(file.path, content, System.currentTimeMillis()))
         }
+    }
+
+    // Search and Replace
+    private val _searchQuery = MutableStateFlow("")
+    val searchQuery: StateFlow<String> = _searchQuery
+
+    private val _searchResults = MutableStateFlow<List<Int>>(emptyList())
+    val searchResults: StateFlow<List<Int>> = _searchResults
+
+    fun search(query: String) {
+        _searchQuery.value = query
+        val content = _currentFile.value?.content ?: return
+        if (query.isEmpty()) {
+            _searchResults.value = emptyList()
+            return
+        }
+        val results = mutableListOf<Int>()
+        var index = content.indexOf(query)
+        while (index >= 0) {
+            results.add(index)
+            index = content.indexOf(query, index + 1)
+        }
+        _searchResults.value = results
+    }
+
+    fun replace(oldText: String, newText: String) {
+        val file = _currentFile.value ?: return
+        val newContent = file.content.replace(oldText, newText)
+        saveFile(newContent)
     }
 }
