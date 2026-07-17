@@ -18,20 +18,17 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import com.example.textbook.domain.FileVersion
+import com.example.textbook.ui.MainViewModel
+import com.example.textbook.ui.Screen
 import java.text.SimpleDateFormat
 import java.util.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HistoryScreen(navController: NavController) {
-    val versions = remember { 
-        listOf(
-            VersionData("v1.4", "Current", "Added null safety checks", 4, 2, Color(0xFF2196F3)),
-            VersionData("v1.3", "Yesterday, 3:10 PM", "Refactored saveFile method", 6, 3, Color(0xFF9C27B0)),
-            VersionData("v1.2", "Feb 28, 9:00 AM", "Initial file structure", 14, 0, Color(0xFF4CAF50)),
-            VersionData("v1.1", "Feb 27, 4:20 PM", "Initial commit", 50, 0, Color(0xFFFF9800))
-        )
-    }
+fun HistoryScreen(navController: NavController, viewModel: MainViewModel) {
+    val versions by viewModel.versions.collectAsState()
+    val file by viewModel.currentFile.collectAsState()
 
     Scaffold(
         topBar = {
@@ -39,7 +36,7 @@ fun HistoryScreen(navController: NavController) {
                 title = { 
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Text("Version History", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                        Text("Main.kt", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+                        Text(file?.name ?: "No File", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
                     }
                 },
                 navigationIcon = {
@@ -50,38 +47,45 @@ fun HistoryScreen(navController: NavController) {
             )
         }
     ) { innerPadding ->
-        Box(modifier = Modifier.padding(innerPadding).fillMaxSize()) {
-            // Timeline line
-            Box(modifier = Modifier
-                .padding(start = 31.dp)
-                .fillMaxHeight()
-                .width(2.dp)
-                .background(Color(0xFFEEEEEE))
-            )
+        if (versions.isEmpty()) {
+            Box(modifier = Modifier.padding(innerPadding).fillMaxSize(), contentAlignment = Alignment.Center) {
+                Text("No versions recorded yet", color = Color.Gray)
+            }
+        } else {
+            Box(modifier = Modifier.padding(innerPadding).fillMaxSize()) {
+                // Timeline line
+                Box(modifier = Modifier
+                    .padding(start = 31.dp)
+                    .fillMaxHeight()
+                    .width(2.dp)
+                    .background(Color(0xFFEEEEEE))
+                )
 
-            LazyColumn(
-                modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                items(versions) { version ->
-                    VersionItem(version)
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    items(versions) { version ->
+                        VersionItem(
+                            version = version,
+                            onRestore = { viewModel.restoreVersion(version) },
+                            onDiff = {
+                                viewModel.showDiff(version)
+                                navController.navigate(Screen.DiffViewer.route)
+                            }
+                        )
+                    }
                 }
             }
         }
     }
 }
 
-data class VersionData(
-    val name: String,
-    val time: String,
-    val description: String,
-    val added: Int,
-    val removed: Int,
-    val color: Color
-)
-
 @Composable
-fun VersionItem(version: VersionData) {
+fun VersionItem(version: FileVersion, onRestore: () -> Unit, onDiff: () -> Unit) {
+    val dateFormat = SimpleDateFormat("MMM dd, h:mm a", Locale.getDefault())
+    val timeString = dateFormat.format(Date(version.timestamp))
+
     Row(modifier = Modifier.fillMaxWidth()) {
         // Dot on the timeline
         Box(
@@ -89,7 +93,7 @@ fun VersionItem(version: VersionData) {
                 .padding(top = 8.dp)
                 .size(12.dp)
                 .clip(CircleShape)
-                .background(version.color)
+                .background(if (version.isFavorite) Color(0xFFFFA500) else Color(0xFF2196F3))
         )
         
         Spacer(modifier = Modifier.width(16.dp))
@@ -106,38 +110,19 @@ fun VersionItem(version: VersionData) {
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(text = version.name, fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                        if (version.time == "Current") {
-                            Surface(
-                                modifier = Modifier.padding(start = 8.dp),
-                                color = Color(0xFFE3F2FD),
-                                shape = RoundedCornerShape(4.dp)
-                            ) {
-                                Text(
-                                    "Current",
-                                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp),
-                                    fontSize = 10.sp,
-                                    color = Color(0xFF2196F3)
-                                )
-                            }
-                        }
-                    }
-                    Text(text = version.time, fontSize = 12.sp, color = Color.Gray)
+                    Text(text = version.versionName, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                    Text(text = timeString, fontSize = 12.sp, color = Color.Gray)
                 }
                 
-                Text(text = version.description, fontSize = 14.sp, modifier = Modifier.padding(vertical = 4.dp))
-                
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(text = "+${version.added}", color = Color(0xFF4CAF50), fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                    Text(text = "-${version.removed}", color = Color(0xFFF44336), fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                if (!version.comment.isNullOrBlank()) {
+                    Text(text = version.comment, fontSize = 14.sp, modifier = Modifier.padding(vertical = 4.dp))
                 }
                 
                 Spacer(modifier = Modifier.height(12.dp))
                 
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedButton(
-                        onClick = { /* Restore */ },
+                        onClick = onRestore,
                         modifier = Modifier.weight(1f),
                         shape = RoundedCornerShape(8.dp),
                         contentPadding = PaddingValues(0.dp)
@@ -145,15 +130,15 @@ fun VersionItem(version: VersionData) {
                         Text("Restore", fontSize = 12.sp)
                     }
                     OutlinedButton(
-                        onClick = { /* Compare */ },
+                        onClick = onDiff,
                         modifier = Modifier.weight(1f),
                         shape = RoundedCornerShape(8.dp),
                         contentPadding = PaddingValues(0.dp)
                     ) {
-                        Text("Compare", fontSize = 12.sp)
+                        Text("Diff", fontSize = 12.sp)
                     }
                     IconButton(
-                        onClick = { /* Delete */ },
+                        onClick = { /* Delete version */ },
                         modifier = Modifier.size(40.dp).background(Color(0xFFFFEBEE), RoundedCornerShape(8.dp))
                     ) {
                         Icon(Icons.Default.DeleteOutline, contentDescription = "Delete", tint = Color.Red, modifier = Modifier.size(20.dp))

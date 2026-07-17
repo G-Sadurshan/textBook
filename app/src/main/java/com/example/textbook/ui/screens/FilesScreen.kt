@@ -19,12 +19,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import com.example.textbook.domain.TextFile
 import com.example.textbook.ui.MainViewModel
 import com.example.textbook.ui.Screen
 
 @Composable
 fun FilesScreen(navController: NavController, viewModel: MainViewModel) {
-    val files by viewModel.allFilesList.collectAsState()
+    val files by viewModel.allFiles.collectAsState()
 
     Scaffold(
         floatingActionButton = {
@@ -48,16 +49,20 @@ fun FilesScreen(navController: NavController, viewModel: MainViewModel) {
             
             Spacer(modifier = Modifier.height(16.dp))
             
-            LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                items(files) { file ->
-                    ExplorerFileItem(file.name, "${file.extension.uppercase()} • ${file.path}") { 
-                        viewModel.openFile(file.path)
-                        navController.navigate(Screen.Editor.createRoute(file.path)) 
+            if (files.isEmpty()) {
+                Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+                    Text("No files yet", color = Color.Gray)
+                }
+            } else {
+                LazyColumn(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    items(files) { file ->
+                        ExplorerFileItem(file) { 
+                            viewModel.openFile(file.path)
+                            navController.navigate(Screen.Editor.createRoute(file.path)) 
+                        }
                     }
                 }
             }
-            
-            Spacer(modifier = Modifier.weight(1f))
             
             StorageSection()
         }
@@ -65,35 +70,7 @@ fun FilesScreen(navController: NavController, viewModel: MainViewModel) {
 }
 
 @Composable
-fun ExplorerFolderItem(name: String, subtext: String) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
-    ) {
-        Row(
-            modifier = Modifier.padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Box(
-                modifier = Modifier.size(40.dp).clip(RoundedCornerShape(8.dp)).background(Color(0xFFF5F5F5)),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(Icons.Default.Folder, contentDescription = null, tint = Color(0xFFFFB74D))
-            }
-            Column(modifier = Modifier.weight(1f)) {
-                Text(text = name, fontWeight = FontWeight.Bold)
-                Text(text = subtext, style = MaterialTheme.typography.bodySmall, color = Color.Gray)
-            }
-            Icon(Icons.Default.ChevronRight, contentDescription = null, tint = Color.Gray)
-        }
-    }
-}
-
-@Composable
-fun ExplorerFileItem(name: String, subtext: String, onClick: () -> Unit) {
+fun ExplorerFileItem(file: TextFile, onClick: () -> Unit) {
     Card(
         onClick = onClick,
         modifier = Modifier.fillMaxWidth(),
@@ -113,8 +90,8 @@ fun ExplorerFileItem(name: String, subtext: String, onClick: () -> Unit) {
                 Icon(Icons.Default.Description, contentDescription = null, tint = Color(0xFF64B5F6))
             }
             Column(modifier = Modifier.weight(1f)) {
-                Text(text = name, fontWeight = FontWeight.Bold)
-                Text(text = subtext, style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+                Text(text = file.name, fontWeight = FontWeight.Bold)
+                Text(text = "${file.extension.uppercase()} • ${file.path}", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
             }
             Icon(Icons.Default.ChevronRight, contentDescription = null, tint = Color.Gray)
         }
@@ -123,14 +100,14 @@ fun ExplorerFileItem(name: String, subtext: String, onClick: () -> Unit) {
 
 @Composable
 fun StorageSection() {
-    Column {
+    Column(modifier = Modifier.padding(top = 16.dp)) {
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Text(text = "Storage", fontWeight = FontWeight.Bold, fontSize = 12.sp)
-            Text(text = "2.4 / 5 GB", fontSize = 10.sp, color = Color.Gray)
+            Text(text = "Internal", fontSize = 10.sp, color = Color.Gray)
         }
         Spacer(modifier = Modifier.height(4.dp))
         LinearProgressIndicator(
-            progress = 0.48f,
+            progress = { 0.48f },
             modifier = Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp)),
             color = Color(0xFF2196F3),
             trackColor = Color(0xFFE0E0E0)

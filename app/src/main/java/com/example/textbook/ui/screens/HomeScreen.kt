@@ -4,7 +4,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -21,13 +20,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
-import com.example.textbook.data.FileEntity
+import com.example.textbook.domain.TextFile
 import com.example.textbook.ui.MainViewModel
 import com.example.textbook.ui.Screen
 
 @Composable
 fun HomeScreen(navController: NavController, viewModel: MainViewModel) {
-    val recentFiles by viewModel.allFilesList.collectAsState()
+    val recentFiles by viewModel.recentFiles.collectAsState()
 
     LazyColumn(
         modifier = Modifier
@@ -51,11 +50,17 @@ fun HomeScreen(navController: NavController, viewModel: MainViewModel) {
                 fontWeight = FontWeight.Bold
             )
         }
-        items(recentFiles.take(5)) { file ->
-            RecentFileItem(file, onClick = {
-                viewModel.openFile(file.path)
-                navController.navigate(Screen.Editor.createRoute(file.name))
-            })
+        if (recentFiles.isEmpty()) {
+            item {
+                EmptyState()
+            }
+        } else {
+            items(recentFiles.take(5)) { file ->
+                RecentFileItem(file, onClick = {
+                    viewModel.openFile(file.path)
+                    navController.navigate(Screen.Editor.createRoute(file.path))
+                })
+            }
         }
         item {
             StatsCard(recentFiles.size)
@@ -103,9 +108,15 @@ fun QuickActionsSection(navController: NavController) {
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        QuickActionItem("New", Icons.Default.Add, Color(0xFFE3F2FD), Color(0xFF2196F3)) {}
-        QuickActionItem("Open", Icons.Default.FolderOpen, Color(0xFFF3E5F5), Color(0xFF9C27B0)) {}
-        QuickActionItem("Recent", Icons.Default.AccessTime, Color(0xFFFFF3E0), Color(0xFFFF9800)) {}
+        QuickActionItem("New", Icons.Default.Add, Color(0xFFE3F2FD), Color(0xFF2196F3)) {
+            navController.navigate(Screen.NewFile.route)
+        }
+        QuickActionItem("Open", Icons.Default.FolderOpen, Color(0xFFF3E5F5), Color(0xFF9C27B0)) {
+            navController.navigate(Screen.Files.route)
+        }
+        QuickActionItem("Kotlin", Icons.Default.Code, Color(0xFFFFF3E0), Color(0xFFFF9800)) {
+            // Quick create kotlin file or filter
+        }
         QuickActionItem("History", Icons.Default.History, Color(0xFFE8F5E9), Color(0xFF4CAF50)) {
             navController.navigate(Screen.History.route)
         }
@@ -132,7 +143,7 @@ fun QuickActionItem(label: String, icon: ImageVector, bgColor: Color, iconColor:
 }
 
 @Composable
-fun RecentFileItem(file: FileEntity, onClick: () -> Unit) {
+fun RecentFileItem(file: TextFile, onClick: () -> Unit) {
     Card(
         onClick = onClick,
         modifier = Modifier.fillMaxWidth(),
@@ -156,10 +167,20 @@ fun RecentFileItem(file: FileEntity, onClick: () -> Unit) {
             }
             Column(modifier = Modifier.weight(1f)) {
                 Text(text = file.name, fontWeight = FontWeight.Bold)
-                Text(text = "${file.extension} • ${file.path}", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+                Text(text = "${file.extension.uppercase()} • ${file.path}", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
             }
             Icon(Icons.Default.ChevronRight, contentDescription = null, tint = Color.Gray)
         }
+    }
+}
+
+@Composable
+fun EmptyState() {
+    Column(
+        modifier = Modifier.fillMaxWidth().padding(24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text("No recent files", color = Color.Gray)
     }
 }
 

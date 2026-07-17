@@ -2,16 +2,14 @@ package com.example.textbook.ui.screens
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Redo
 import androidx.compose.material.icons.automirrored.filled.Undo
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -20,115 +18,112 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.example.textbook.editor.SyntaxHighlightTransformation
+import com.example.textbook.editor.UndoRedoManager
 import com.example.textbook.ui.MainViewModel
+import com.example.textbook.ui.Screen
+import com.example.textbook.ui.theme.TextBookTheme
+import androidx.compose.ui.tooling.preview.Preview
 
 @Composable
 fun EditorScreen(navController: NavController, viewModel: MainViewModel) {
     val file by viewModel.currentFile.collectAsState()
-    var text by remember(file) { mutableStateOf(file?.content ?: "") }
+    val fontSize by viewModel.fontSize.collectAsState(14)
+    
+    // Using a derived state for content to integrate Undo/Redo
+    val undoRedoManager = remember(file?.path) { UndoRedoManager(file?.content ?: "") }
 
-    Scaffold(
-        topBar = {
-            EditorTopBar(navController, file?.name ?: "No File")
+    EditorScreenContent(
+        fileName = file?.name ?: "No File",
+        fileExtension = file?.extension ?: "txt",
+        textContent = undoRedoManager.currentContent,
+        fontSize = fontSize,
+        canUndo = undoRedoManager.canUndo(),
+        canRedo = undoRedoManager.canRedo(),
+        onTextChange = {
+            undoRedoManager.onContentChange(it)
+            viewModel.cacheForRecovery(it)
         },
-        floatingActionButton = {
-            FloatingActionButton(onClick = { viewModel.saveFile(text, "Auto Save") }, containerColor = Color(0xFF2196F3)) {
-                Icon(Icons.Default.Save, contentDescription = "Save", tint = Color.White)
-            }
-        },
-        bottomBar = {
-            EditorBottomBar(file?.extension ?: "txt")
-        }
-    ) { innerPadding ->
-        Column(modifier = Modifier.padding(innerPadding).fillMaxSize()) {
-            FileTab(file?.name ?: "Unnamed")
-            EditorArea(text, file?.extension ?: "txt") { 
-                text = it 
-                viewModel.cacheForRecovery(it)
-            }
-        }
-    }
+        onUndo = { undoRedoManager.undo() },
+        onRedo = { undoRedoManager.redo() },
+        onSaveClick = { viewModel.saveFile(undoRedoManager.currentContent, "Manual Save") },
+        onBackClick = { navController.popBackStack() },
+        onSearchClick = { navController.navigate(Screen.SearchReplace.route) },
+        onPreviewClick = { navController.navigate(Screen.MarkdownPreview.route) }
+    )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun EditorTopBar(navController: NavController, filePath: String) {
-    TopAppBar(
-        title = {},
-        navigationIcon = {
-            IconButton(onClick = { navController.popBackStack() }) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-            }
+fun EditorScreenContent(
+    fileName: String,
+    fileExtension: String,
+    textContent: String,
+    fontSize: Int,
+    canUndo: Boolean,
+    canRedo: Boolean,
+    onTextChange: (String) -> Unit,
+    onUndo: () -> Unit,
+    onRedo: () -> Unit,
+    onSaveClick: () -> Unit,
+    onBackClick: () -> Unit,
+    onSearchClick: () -> Unit,
+    onPreviewClick: () -> Unit
+) {
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text(fileName, style = MaterialTheme.typography.titleMedium) },
+                navigationIcon = {
+                    IconButton(onClick = onBackClick) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                    }
+                },
+                actions = {
+                    IconButton(onClick = onUndo, enabled = canUndo) { 
+                        Icon(Icons.AutoMirrored.Filled.Undo, contentDescription = "Undo") 
+                    }
+                    IconButton(onClick = onRedo, enabled = canRedo) { 
+                        Icon(Icons.AutoMirrored.Filled.Redo, contentDescription = "Redo") 
+                    }
+                    IconButton(onClick = onSearchClick) { 
+                        Icon(Icons.Default.Search, contentDescription = "Search") 
+                    }
+                    if (fileExtension == "md") {
+                        IconButton(onClick = onPreviewClick) { 
+                            Icon(Icons.Default.Visibility, contentDescription = "Preview") 
+                        }
+                    }
+                    IconButton(onClick = onSaveClick) { 
+                        Icon(Icons.Default.Save, contentDescription = "Save") 
+                    }
+                }
+            )
         },
-        actions = {
-            IconButton(onClick = { /* Undo */ }) { Icon(Icons.AutoMirrored.Filled.Undo, contentDescription = "Undo") }
-            IconButton(onClick = { /* Search */ }) { Icon(Icons.Default.Search, contentDescription = "Search") }
-            IconButton(onClick = { /* Link */ }) { Icon(Icons.Default.Link, contentDescription = "Link") }
-            IconButton(onClick = { /* Preview */ }) { Icon(Icons.Default.Visibility, contentDescription = "Preview") }
-            
-            Spacer(modifier = Modifier.width(8.dp))
-            
-            Surface(
-                color = Color(0xFFE3F2FD),
-                shape = RoundedCornerShape(4.dp)
-            ) {
-                Text(
-                    text = "HL",
-                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp),
-                    fontSize = 10.sp,
-                    color = Color(0xFF2196F3)
-                )
-            }
-            
-            Spacer(modifier = Modifier.width(8.dp))
-            
-            Surface(
-                color = Color(0xFFE8F5E9),
-                shape = RoundedCornerShape(4.dp)
-            ) {
-                Text(
-                    text = "Saved",
-                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp),
-                    fontSize = 10.sp,
-                    color = Color(0xFF4CAF50)
-                )
-            }
+        bottomBar = {
+            EditorBottomBar(fileExtension, textContent)
         }
-    )
-}
-
-@Composable
-fun FileTab(fileName: String) {
-    Row(
-        modifier = Modifier
-            .padding(horizontal = 16.dp, vertical = 8.dp)
-            .background(Color(0xFFF5F5F5), RoundedCornerShape(16.dp))
-            .padding(horizontal = 12.dp, vertical = 4.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Box(modifier = Modifier.size(8.dp).background(Color(0xFFFFA500), CircleShape))
-        Spacer(modifier = Modifier.width(8.dp))
-        Text(text = if(fileName.isEmpty()) "Main.kt" else fileName, style = MaterialTheme.typography.bodySmall)
-        Spacer(modifier = Modifier.width(8.dp))
-        Icon(Icons.Default.Close, contentDescription = null, modifier = Modifier.size(14.dp), tint = Color.Gray)
+    ) { innerPadding ->
+        Column(modifier = Modifier.padding(innerPadding).fillMaxSize()) {
+            EditorArea(textContent, fileExtension, fontSize, onTextChange)
+        }
     }
 }
 
 @Composable
-fun EditorArea(text: String, extension: String, onTextChange: (String) -> Unit) {
+fun EditorArea(text: String, extension: String, fontSize: Int, onTextChange: (String) -> Unit) {
     Row(modifier = Modifier.fillMaxSize()) {
         // Line Numbers
+        val lines = text.split("\n").size
         Column(
             modifier = Modifier
-                .width(40.dp)
+                .width(44.dp)
                 .fillMaxHeight()
                 .background(Color(0xFFFAFAFA))
                 .padding(top = 16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            val lines = text.split("\n").size
             for (i in 1..lines) {
-                Text(text = i.toString(), fontSize = 12.sp, color = Color.LightGray)
+                Text(text = i.toString(), fontSize = (fontSize - 2).sp, color = Color.LightGray, fontFamily = FontFamily.Monospace)
             }
         }
         
@@ -146,14 +141,18 @@ fun EditorArea(text: String, extension: String, onTextChange: (String) -> Unit) 
             ),
             textStyle = LocalTextStyle.current.copy(
                 fontFamily = FontFamily.Monospace,
-                fontSize = 14.sp
+                fontSize = fontSize.sp
             )
         )
     }
 }
 
 @Composable
-fun EditorBottomBar(extension: String) {
+fun EditorBottomBar(extension: String, content: String) {
+    val charCount = content.length
+    val wordCount = if (content.isBlank()) 0 else content.split(Regex("\\s+")).size
+    val lineCount = content.lines().size
+
     Surface(
         color = Color(0xFFF5F5F5),
         modifier = Modifier.fillMaxWidth()
@@ -163,13 +162,36 @@ fun EditorBottomBar(extension: String) {
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                Text(text = "Ln 1", fontSize = 10.sp, color = Color.Gray)
-                Text(text = "Col 1", fontSize = 10.sp, color = Color.Gray)
+                Text(text = "L: $lineCount", fontSize = 10.sp, color = Color.Gray)
+                Text(text = "W: $wordCount", fontSize = 10.sp, color = Color.Gray)
+                Text(text = "C: $charCount", fontSize = 10.sp, color = Color.Gray)
             }
             Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                 Text(text = "UTF-8", fontSize = 10.sp, color = Color.Gray)
                 Text(text = extension.uppercase(), fontSize = 10.sp, color = Color.Gray)
             }
         }
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun EditorScreenPreview() {
+    TextBookTheme {
+        EditorScreenContent(
+            fileName = "MainActivity.kt",
+            fileExtension = "kt",
+            textContent = "fun main() {\n    println(\"Hello\")\n}",
+            fontSize = 14,
+            canUndo = true,
+            canRedo = false,
+            onTextChange = {},
+            onUndo = {},
+            onRedo = {},
+            onSaveClick = {},
+            onBackClick = {},
+            onSearchClick = {},
+            onPreviewClick = {}
+        )
     }
 }

@@ -5,13 +5,11 @@ import androidx.compose.ui.text.input.OffsetMapping
 import androidx.compose.ui.text.input.TransformedText
 import androidx.compose.ui.text.input.VisualTransformation
 
-class SyntaxHighlightTransformation(val extension: String) : VisualTransformation {
+class SyntaxHighlightTransformation(private val extension: String) : VisualTransformation {
     override fun filter(text: AnnotatedString): TransformedText {
-        val highlighted = when (extension.lowercase()) {
-            "kt" -> SyntaxHighlighter.highlightKotlin(text.text)
-            "md" -> SyntaxHighlighter.highlightMarkdown(text.text)
-            else -> text
-        }
-        return TransformedText(highlighted, OffsetMapping.Identity)
+        return TransformedText(
+            SyntaxHighlighter.highlight(text.text, extension),
+            OffsetMapping.Identity
+        )
     }
 }

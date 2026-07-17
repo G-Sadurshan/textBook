@@ -1,108 +1,154 @@
 package com.example.textbook.ui
 
-import android.app.Application
-import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.textbook.data.*
-import com.example.textbook.vcs.VersionControlManager
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
+import com.example.textbook.domain.TextFile
+import com.example.textbook.domain.FileVersion
+import com.example.textbook.domain.TextBookRepository
+import com.example.textbook.core.settings.SettingsManager
+import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import java.util.*
+import timber.log.Timber
+import javax.inject.Inject
 
-class MainViewModel(application: Application) : AndroidViewModel(application) {
-    private val db = AppDatabase.getDatabase(application)
-    private val dao = db.fileDao()
+@HiltViewModel
+class MainViewModel @Inject constructor(
+    private val repository: TextBookRepository,
+    private val settingsManager: SettingsManager
+) : ViewModel() {
 
-    private val _currentFile = MutableStateFlow<FileEntity?>(null)
-    val currentFile: StateFlow<FileEntity?> = _currentFile
+    private val _currentFile = MutableStateFlow<TextFile?>(null)
+    val currentFile: StateFlow<TextFile?> = _currentFile.asStateFlow()
 
-    private val _allFilesList = MutableStateFlow<List<FileEntity>>(emptyList())
-    val allFilesList: StateFlow<List<FileEntity>> = _allFilesList
+    val allFiles = repository.getAllFiles()
+        .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
-    init {
-        viewModelScope.launch {
-            dao.getAllFiles().collect {
-                _allFilesList.value = it
-            }
-        }
-    }
+    val recentFiles = repository.getRecentFiles()
+        .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
+
+    val favoriteFiles = repository.getFavoriteFiles()
+        .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
+        
+    val pinnedFiles = repository.getPinnedFiles()
+        .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
+
+    val versions = _currentFile.flatMapLatest { file ->
+        if (file != null) repository.getVersionsForFile(file.path)
+        else flowOf(emptyList())
+    }.stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
+
+    // Settings
+    val darkMode = settingsManager.darkMode
+    val fontSize = settingsManager.fontSize
+    val wordWrap = settingsManager.wordWrap
 
     fun openFile(path: String) {
         viewModelScope.launch {
-            _currentFile.value = dao.getFileByPath(path)
+            try {
+                val file = repository.getFileByPath(path)
+                _currentFile.value = file
+                // Check for recovery
+                val recovery = repository.getRecoveryData(path)
+                if (recovery != null) {
+                    Timber.d("Recovery data found for $path")
+                    // Handle recovery (e.g. show dialog)
+                }
+            } catch (e: Exception) {
+                Timber.e(e, "Failed to open file $path")
+            }
         }
     }
 
-    fun saveFile(content: String, versionName: String? = null) {
+    fun saveFile(content: String, comment: String? = null) {
         val file = _currentFile.value ?: return
         viewModelScope.launch {
-            // If a version name is provided, create a version/delta
-            if (versionName != null) {
-                val delta = withContext(Dispatchers.Default) {
-                    VersionControlManager.createDelta(file.content, content, file.name)
+            try {
+                val updatedFile = file.copy(content = content, lastModified = System.currentTimeMillis())
+                repository.saveFile(updatedFile)
+                _currentFile.value = updatedFile
+                repository.clearRecoveryData(file.path)
+                
+                if (comment != null) {
+                    repository.createVersion(file.path, "Version ${System.currentTimeMillis()}", comment, content)
                 }
-                val stats = withContext(Dispatchers.Default) {
-                    VersionControlManager.getDiffStats(delta)
-                }
-                val version = VersionEntity(
-                    filePath = file.path,
-                    versionName = versionName,
-                    timestamp = System.currentTimeMillis(),
-                    delta = delta,
-                    addedCount = stats.first,
-                    removedCount = stats.second
-                )
-                dao.insertVersion(version)
+            } catch (e: Exception) {
+                Timber.e(e, "Failed to save file ${file.path}")
             }
-            
-            val updatedFile = file.copy(content = content, lastModified = System.currentTimeMillis())
-            dao.insertFile(updatedFile)
-            _currentFile.value = updatedFile
-            
-            // Clear crash recovery after manual save
-            dao.clearRecoveryData(file.path)
         }
     }
 
-    fun createFile(name: String, extension: String, path: String) {
+    fun cacheForRecovery(content: String) {
+        val file = _currentFile.value ?: return
         viewModelScope.launch {
-            val newFile = FileEntity(
+            repository.saveRecoveryData(file.path, content)
+        }
+    }
+
+    fun createFile(name: String, extension: String, parentDir: String) {
+        viewModelScope.launch {
+            val path = "$parentDir/$name.$extension"
+            val newFile = TextFile(
                 path = path,
                 name = name,
                 extension = extension,
                 content = "",
                 lastModified = System.currentTimeMillis()
             )
-            dao.insertFile(newFile)
-            _currentFile.value = newFile
+            repository.saveFile(newFile)
+            openFile(path)
         }
     }
 
-    // Crash Recovery periodic cache
-    fun cacheForRecovery(content: String) {
-        val file = _currentFile.value ?: return
+    fun toggleFavorite(file: TextFile) {
         viewModelScope.launch {
-            dao.saveRecoveryData(CrashRecoveryEntity(file.path, content, System.currentTimeMillis()))
+            repository.saveFile(file.copy(isFavorite = !file.isFavorite))
         }
     }
 
-    // Search and Replace
-    private val _searchQuery = MutableStateFlow("")
-    val searchQuery: StateFlow<String> = _searchQuery
+    fun setDarkMode(enabled: Boolean) {
+        viewModelScope.launch {
+            settingsManager.setDarkMode(enabled)
+        }
+    }
 
+    fun restoreVersion(version: FileVersion) {
+        viewModelScope.launch {
+            try {
+                val restoredContent = repository.restoreVersion(version)
+                val file = _currentFile.value ?: return@launch
+                _currentFile.value = file.copy(content = restoredContent)
+            } catch (e: Exception) {
+                Timber.e(e, "Failed to restore version")
+            }
+        }
+    }
+
+    private val _diffData = MutableStateFlow<Pair<String, String>?>(null)
+    val diffData = _diffData.asStateFlow()
+
+    fun showDiff(version: FileVersion) {
+        viewModelScope.launch {
+            val currentContent = _currentFile.value?.content ?: ""
+            _diffData.value = Pair(currentContent, version.diffContent) // Simplified for side-by-side comparison
+        }
+    }
+
+    // Search & Replace
+    private val _searchQuery = MutableStateFlow("")
+    val searchQuery = _searchQuery.asStateFlow()
+    
     private val _searchResults = MutableStateFlow<List<Int>>(emptyList())
-    val searchResults: StateFlow<List<Int>> = _searchResults
+    val searchResults = _searchResults.asStateFlow()
 
     fun search(query: String) {
         _searchQuery.value = query
-        val content = _currentFile.value?.content ?: return
+        val content = _currentFile.value?.content ?: ""
         if (query.isEmpty()) {
             _searchResults.value = emptyList()
             return
         }
+        
         val results = mutableListOf<Int>()
         var index = content.indexOf(query)
         while (index >= 0) {
@@ -112,9 +158,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         _searchResults.value = results
     }
 
-    fun replace(oldText: String, newText: String) {
+    fun replace(old: String, new: String) {
         val file = _currentFile.value ?: return
-        val newContent = file.content.replace(oldText, newText)
-        saveFile(newContent)
+        val newContent = file.content.replace(old, new)
+        saveFile(newContent, "Replace '$old' with '$new'")
+        search(old) // Update search results after replacement
     }
 }

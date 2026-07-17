@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -14,22 +15,25 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
+import com.example.textbook.ui.MainViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsScreen(navController: NavController) {
+fun SettingsScreen(navController: NavController, viewModel: MainViewModel = hiltViewModel()) {
+    val darkMode by viewModel.darkMode.collectAsState(initial = false)
+    val fontSize by viewModel.fontSize.collectAsState(initial = 14)
+    val wordWrap by viewModel.wordWrap.collectAsState(initial = true)
+
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text("Settings", fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
-                },
-                actions = {
-                    Box(modifier = Modifier.padding(end = 16.dp).size(24.dp).background(Color(0xFFF06292), RoundedCornerShape(12.dp)))
                 }
             )
         }
@@ -39,31 +43,16 @@ fun SettingsScreen(navController: NavController) {
             verticalArrangement = Arrangement.spacedBy(24.dp)
         ) {
             item { SettingsGroup("APPEARANCE") {
-                SettingRow("Theme", "Rose", hasArrow = true)
-                SettingToggle("Dark Mode", false)
+                SettingToggle("Dark Mode", darkMode) { viewModel.setDarkMode(it) }
             }}
             
             item { SettingsGroup("EDITOR") {
-                SettingRow("Font", "DM Mono", hasArrow = true, color = Color(0xFFF06292))
-                Column(modifier = Modifier.padding(vertical = 8.dp)) {
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text("Font Size", style = MaterialTheme.typography.bodyMedium)
-                        Text("16px", color = Color(0xFFF06292), fontWeight = FontWeight.Bold)
-                    }
-                    Slider(
-                        value = 0.5f,
-                        onValueChange = {},
-                        colors = SliderDefaults.colors(thumbColor = Color(0xFFF06292), activeTrackColor = Color(0xFFF06292))
-                    )
+                SettingRow("Font Size", "$fontSize px") {
+                    // Action for font size
                 }
-                SettingToggle("Word Wrap", true)
-                SettingToggle("Syntax Highlighting", true)
-            }}
-            
-            item { SettingsGroup("FILES") {
-                SettingToggle("Auto Save", true)
-                SettingToggle("Crash Recovery", true)
-                SettingToggle("Auto Backup", false)
+                SettingToggle("Word Wrap", wordWrap) {
+                    // Action for word wrap
+                }
             }}
         }
     }
@@ -86,7 +75,7 @@ fun SettingsGroup(title: String, content: @Composable ColumnScope.() -> Unit) {
 }
 
 @Composable
-fun SettingRow(label: String, value: String, hasArrow: Boolean = false, color: Color = Color.Black) {
+fun SettingRow(label: String, value: String, onClick: () -> Unit) {
     Row(
         modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -94,17 +83,14 @@ fun SettingRow(label: String, value: String, hasArrow: Boolean = false, color: C
     ) {
         Text(text = label, style = MaterialTheme.typography.bodyMedium)
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(text = value, style = MaterialTheme.typography.bodyMedium, color = color, fontWeight = FontWeight.Medium)
-            if (hasArrow) {
-                Icon(Icons.Default.ChevronRight, contentDescription = null, tint = Color.LightGray)
-            }
+            Text(text = value, style = MaterialTheme.typography.bodyMedium, color = Color(0xFF2196F3), fontWeight = FontWeight.Medium)
+            Icon(Icons.Default.ChevronRight, contentDescription = null, tint = Color.LightGray)
         }
     }
 }
 
 @Composable
-fun SettingToggle(label: String, checked: Boolean) {
-    var isChecked by remember { mutableStateOf(checked) }
+fun SettingToggle(label: String, checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
     Row(
         modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -112,9 +98,8 @@ fun SettingToggle(label: String, checked: Boolean) {
     ) {
         Text(text = label, style = MaterialTheme.typography.bodyMedium)
         Switch(
-            checked = isChecked,
-            onCheckedChange = { isChecked = it },
-            colors = SwitchDefaults.colors(checkedThumbColor = Color.White, checkedTrackColor = Color(0xFFF06292))
+            checked = checked,
+            onCheckedChange = onCheckedChange
         )
     }
 }

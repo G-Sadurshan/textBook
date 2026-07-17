@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <dimen name="padding_small">8.dp</dimen>
+    <dimen name="padding_medium">16.dp</dimen>
+    <dimen name="padding_large">24.dp</dimen>
+
+    <dimen name="corner_radius_small">4.dp</dimen>
+    <dimen name="corner_radius_medium">12.dp</dimen>
+    <dimen name="corner_radius_large">16.dp</dimen>
+
+    <dimen name="icon_size_small">14.dp</dimen>
+    <dimen name="icon_size_medium">24.dp</dimen>
+    <dimen name="icon_size_large">40.dp</dimen>
+
+    <dimen name="text_size_micro">10.sp</dimen>
+    <dimen name="text_size_small">12.sp</dimen>
+    <dimen name="text_size_medium">14.sp</dimen>
+    <dimen name="text_size_large">16.sp</dimen>
+</resources>
