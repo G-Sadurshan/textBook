@@ -159,6 +159,7 @@ fun EditorScreen(navController: NavController, viewModel: MainViewModel) {
         fontSize = fontSize,
         isReadOnly = file?.isReadOnly ?: false,
         isViewingVersion = isViewingVersion,
+        isFavorite = file?.isFavorite ?: false,
         canUndo = undoRedoManager.canUndo(),
         canRedo = undoRedoManager.canRedo(),
         onTextChange = {
@@ -179,6 +180,9 @@ fun EditorScreen(navController: NavController, viewModel: MainViewModel) {
         },
         onViewHistoryClick = {
             navController.navigate(Screen.History.route)
+        },
+        onFavoriteToggle = {
+            file?.let { viewModel.toggleFavorite(it) }
         },
         onToggleReadOnly = { viewModel.toggleReadOnly() },
         onBackClick = { 
@@ -204,6 +208,7 @@ fun EditorScreenContent(
     fontSize: Int,
     isReadOnly: Boolean,
     isViewingVersion: Boolean,
+    isFavorite: Boolean,
     canUndo: Boolean,
     canRedo: Boolean,
     onTextChange: (String) -> Unit,
@@ -213,6 +218,7 @@ fun EditorScreenContent(
     onSaveAsClick: () -> Unit,
     onSaveVersionClick: () -> Unit,
     onViewHistoryClick: () -> Unit,
+    onFavoriteToggle: () -> Unit,
     onToggleReadOnly: () -> Unit,
     onBackClick: () -> Unit,
     onSearchClick: () -> Unit,
@@ -237,6 +243,13 @@ fun EditorScreenContent(
                     }
                 },
                 actions = {
+                    IconButton(onClick = onFavoriteToggle) {
+                        Icon(
+                            if (isFavorite) Icons.Default.Star else Icons.Default.StarBorder,
+                            contentDescription = "Favorite",
+                            tint = if (isFavorite) Color(0xFFF59E0B) else Color.Gray
+                        )
+                    }
                     IconButton(onClick = onToggleReadOnly, enabled = !isViewingVersion) {
                         Icon(
                             if (isReadOnly || isViewingVersion) Icons.Default.Lock else Icons.Default.LockOpen,
@@ -441,6 +454,7 @@ fun EditorScreenPreview() {
             fontSize = 14,
             isReadOnly = false,
             isViewingVersion = false,
+            isFavorite = false,
             canUndo = true,
             canRedo = false,
             onTextChange = {},
@@ -450,6 +464,7 @@ fun EditorScreenPreview() {
             onSaveAsClick = {},
             onSaveVersionClick = {},
             onViewHistoryClick = {},
+            onFavoriteToggle = {},
             onToggleReadOnly = {},
             onBackClick = {},
             onSearchClick = {},
