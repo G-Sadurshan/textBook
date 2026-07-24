@@ -26,6 +26,9 @@ class MainViewModel @Inject constructor(
     private val _currentFile = MutableStateFlow<TextFile?>(null)
     val currentFile: StateFlow<TextFile?> = _currentFile.asStateFlow()
 
+    private val _isViewingVersion = MutableStateFlow(false)
+    val isViewingVersion: StateFlow<Boolean> = _isViewingVersion.asStateFlow()
+
     val allFiles = repository.getAllFiles()
         .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
@@ -57,6 +60,7 @@ class MainViewModel @Inject constructor(
             try {
                 val file = repository.getFileByPath(path)
                 _currentFile.value = file
+                _isViewingVersion.value = false // Reset viewing mode
                 // Check for recovery
                 val recovery = repository.getRecoveryData(path)
                 if (recovery != null && recovery != file?.content) {
@@ -83,6 +87,7 @@ class MainViewModel @Inject constructor(
     }
 
     fun toggleReadOnly() {
+        if (_isViewingVersion.value) return // Requirement 6: Cannot unlock historical versions
         val file = _currentFile.value ?: return
         viewModelScope.launch {
             val updated = file.copy(isReadOnly = !file.isReadOnly)
@@ -93,7 +98,7 @@ class MainViewModel @Inject constructor(
 
     fun saveFile(content: String, versionName: String? = null, comment: String? = null) {
         val file = _currentFile.value ?: return
-        if (file.isReadOnly) return
+        if (file.isReadOnly && !_isViewingVersion.value) return
         
         viewModelScope.launch {
             try {
@@ -109,6 +114,50 @@ class MainViewModel @Inject constructor(
                 repository.clearRecoveryData(file.path)
             } catch (e: Exception) {
                 Timber.e(e, "Failed to save file ${file.path}")
+            }
+        }
+    }
+
+    fun saveAs(name: String, extension: String, content: String) {
+        val currentFile = _currentFile.value ?: return
+        val parentDir = java.io.File(currentFile.path).parent ?: return
+        viewModelScope.launch {
+            try {
+                val newPath = "$parentDir/$name.$extension"
+                val newFile = TextFile(
+                    path = newPath,
+                    name = name,
+                    extension = extension,
+                    content = content,
+                    lastModified = System.currentTimeMillis()
+                )
+                repository.saveFile(newFile)
+                openFile(newPath)
+            } catch (e: Exception) {
+                Timber.e(e, "Failed to save as $name")
+            }
+        }
+    }
+
+    fun renameFile(file: TextFile, newName: String) {
+        viewModelScope.launch {
+            try {
+                val oldFile = java.io.File(file.path)
+                val newPath = "${oldFile.parent}/$newName.${file.extension}"
+                val newFile = file.copy(path = newPath, name = newName)
+                
+                // Move physical file
+                oldFile.renameTo(java.io.File(newPath))
+                
+                // Update DB (Save new, delete old - or update if implementation allows)
+                repository.saveFile(newFile)
+                repository.deleteFile(file.path)
+                
+                if (_currentFile.value?.path == file.path) {
+                    _currentFile.value = newFile
+                }
+            } catch (e: Exception) {
+                Timber.e(e, "Failed to rename file")
             }
         }
     }
@@ -151,11 +200,37 @@ class MainViewModel @Inject constructor(
     fun restoreVersion(version: FileVersion) {
         viewModelScope.launch {
             try {
-                val restoredContent = repository.restoreVersion(version)
+                // Requirement 5: Restoring should create a new version
+                val restoredContent = repository.restoreVersion(version, applyToDisk = false)
                 val file = _currentFile.value ?: return@launch
-                _currentFile.value = file.copy(content = restoredContent)
+                
+                saveFile(
+                    restoredContent, 
+                    "Restored v${version.versionNumber}", 
+                    "Restored from version ${version.versionNumber} (${version.versionName})"
+                )
+                
+                _currentFile.value = file.copy(content = restoredContent, isReadOnly = false)
+                _isViewingVersion.value = false
             } catch (e: Exception) {
                 Timber.e(e, "Failed to restore version")
+            }
+        }
+    }
+
+    fun viewVersion(version: FileVersion) {
+        viewModelScope.launch {
+            try {
+                val versionContent = repository.restoreVersion(version, applyToDisk = false)
+                val file = _currentFile.value ?: return@launch
+                _isViewingVersion.value = true
+                _currentFile.value = file.copy(
+                    content = versionContent,
+                    isReadOnly = true, // Requirement 6: Opening an old version should not allow editing
+                    name = "${file.name} (v${version.versionNumber})"
+                )
+            } catch (e: Exception) {
+                Timber.e(e, "Failed to view version")
             }
         }
     }
@@ -168,6 +243,14 @@ class MainViewModel @Inject constructor(
             val currentContent = _currentFile.value?.content ?: ""
             val versionContent = repository.restoreVersion(version, applyToDisk = false)
             _diffData.value = Pair(versionContent, currentContent)
+        }
+    }
+
+    fun showDiff(version1: FileVersion, version2: FileVersion) {
+        viewModelScope.launch {
+            val content1 = repository.restoreVersion(version1, applyToDisk = false)
+            val content2 = repository.restoreVersion(version2, applyToDisk = false)
+            _diffData.value = Pair(content1, content2)
         }
     }
 

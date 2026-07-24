@@ -18,6 +18,6 @@ data class FileVersion(
     val versionNumber: Int,
     val timestamp: Long,
     val comment: String?,
-    val diffContent: String,
+    val diffContent: String, // Requirement 7: Delta storage
     val isFavorite: Boolean = false
 )

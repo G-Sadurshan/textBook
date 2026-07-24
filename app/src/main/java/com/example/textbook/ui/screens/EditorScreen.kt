@@ -1,6 +1,8 @@
 package com.example.textbook.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -31,14 +33,18 @@ fun EditorScreen(navController: NavController, viewModel: MainViewModel) {
     val file by viewModel.currentFile.collectAsState()
     val fontSize by viewModel.fontSize.collectAsState(14)
     val recoveryData by viewModel.recoveryData.collectAsState()
+    val isViewingVersion by viewModel.isViewingVersion.collectAsState()
     
-    val undoRedoManager = remember(file?.path) { UndoRedoManager(file?.content ?: "") }
+    val undoRedoManager = remember(file?.path, isViewingVersion) { 
+        UndoRedoManager(file?.content ?: "") 
+    }
     
     var showSaveVersionDialog by remember { mutableStateOf(false) }
+    var showSaveAsDialog by remember { mutableStateOf(false) }
 
-    // Crash Prevention: Periodic background cache every 10 seconds
-    LaunchedEffect(file?.path, file?.isReadOnly) {
-        if (file != null && !file!!.isReadOnly) {
+    // Crash Prevention: Periodic background cache every 10 seconds (Requirement 4)
+    LaunchedEffect(file?.path, file?.isReadOnly, isViewingVersion) {
+        if (file != null && !file!!.isReadOnly && !isViewingVersion) {
             while (true) {
                 delay(10000)
                 if (undoRedoManager.currentContent != file?.content) {
@@ -67,12 +73,14 @@ fun EditorScreen(navController: NavController, viewModel: MainViewModel) {
     }
     
     if (showSaveVersionDialog) {
-        var versionName by remember { mutableStateOf("Version ${System.currentTimeMillis() % 10000}") }
+        val versions by viewModel.versions.collectAsState()
+        val nextNumber = (versions.maxByOrNull { it.versionNumber }?.versionNumber ?: 0) + 1
+        var versionName by remember { mutableStateOf("Version $nextNumber") }
         var comment by remember { mutableStateOf("") }
         
         AlertDialog(
             onDismissRequest = { showSaveVersionDialog = false },
-            title = { Text("Create Named Version") },
+            title = { Text("Create Snapshot") }, // Requirement 7
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedTextField(
@@ -84,7 +92,7 @@ fun EditorScreen(navController: NavController, viewModel: MainViewModel) {
                     OutlinedTextField(
                         value = comment,
                         onValueChange = { comment = it },
-                        label = { Text("Comment (Optional)") },
+                        label = { Text("Version Note") }, // Requirement 7
                         modifier = Modifier.fillMaxWidth()
                     )
                 }
@@ -94,11 +102,50 @@ fun EditorScreen(navController: NavController, viewModel: MainViewModel) {
                     viewModel.saveFile(undoRedoManager.currentContent, versionName, comment)
                     showSaveVersionDialog = false
                 }) {
-                    Text("Save Version")
+                    Text("Create Version")
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showSaveVersionDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
+    if (showSaveAsDialog) {
+        var newName by remember { mutableStateOf(file?.name ?: "") }
+        var extension by remember { mutableStateOf(file?.extension ?: "txt") }
+        
+        AlertDialog(
+            onDismissRequest = { showSaveAsDialog = false },
+            title = { Text("Save As") }, // Requirement 1
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = newName,
+                        onValueChange = { newName = it },
+                        label = { Text("File Name") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    OutlinedTextField(
+                        value = extension,
+                        onValueChange = { extension = it },
+                        label = { Text("Extension") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                Button(onClick = {
+                    viewModel.saveAs(newName, extension, undoRedoManager.currentContent)
+                    showSaveAsDialog = false
+                }) {
+                    Text("Save")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showSaveAsDialog = false }) {
                     Text("Cancel")
                 }
             }
@@ -111,10 +158,11 @@ fun EditorScreen(navController: NavController, viewModel: MainViewModel) {
         textContent = undoRedoManager.currentContent,
         fontSize = fontSize,
         isReadOnly = file?.isReadOnly ?: false,
+        isViewingVersion = isViewingVersion,
         canUndo = undoRedoManager.canUndo(),
         canRedo = undoRedoManager.canRedo(),
         onTextChange = {
-            if (file?.isReadOnly != true) {
+            if (file?.isReadOnly != true && !isViewingVersion) {
                 undoRedoManager.onContentChange(it)
             }
         },
@@ -123,11 +171,22 @@ fun EditorScreen(navController: NavController, viewModel: MainViewModel) {
         onSaveClick = { 
             viewModel.saveFile(undoRedoManager.currentContent) 
         },
+        onSaveAsClick = {
+            showSaveAsDialog = true
+        },
         onSaveVersionClick = {
             showSaveVersionDialog = true
         },
         onToggleReadOnly = { viewModel.toggleReadOnly() },
-        onBackClick = { navController.popBackStack() },
+        onBackClick = { 
+            if (isViewingVersion) {
+                // If viewing a version, maybe we want to go back to the current file?
+                // For now, let's just pop back stack.
+                navController.popBackStack()
+            } else {
+                navController.popBackStack()
+            }
+        },
         onSearchClick = { navController.navigate(Screen.SearchReplace.route) },
         onPreviewClick = { navController.navigate(Screen.MarkdownPreview.route) }
     )
@@ -141,91 +200,168 @@ fun EditorScreenContent(
     textContent: String,
     fontSize: Int,
     isReadOnly: Boolean,
+    isViewingVersion: Boolean,
     canUndo: Boolean,
     canRedo: Boolean,
     onTextChange: (String) -> Unit,
     onUndo: () -> Unit,
     onRedo: () -> Unit,
     onSaveClick: () -> Unit,
+    onSaveAsClick: () -> Unit,
     onSaveVersionClick: () -> Unit,
     onToggleReadOnly: () -> Unit,
     onBackClick: () -> Unit,
     onSearchClick: () -> Unit,
     onPreviewClick: () -> Unit
 ) {
+    var showMoreActions by remember { mutableStateOf(false) }
+
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(fileName, style = MaterialTheme.typography.titleMedium) },
+                title = { 
+                    Column {
+                        Text(fileName, style = MaterialTheme.typography.titleMedium)
+                        if (isViewingVersion) {
+                            Text("Historical Version (Read-Only)", style = MaterialTheme.typography.labelSmall, color = Color(0xFFE11D48))
+                        }
+                    }
+                },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 },
                 actions = {
-                    IconButton(onClick = onToggleReadOnly) {
+                    IconButton(onClick = onToggleReadOnly, enabled = !isViewingVersion) {
                         Icon(
-                            if (isReadOnly) Icons.Default.Lock else Icons.Default.LockOpen,
+                            if (isReadOnly || isViewingVersion) Icons.Default.Lock else Icons.Default.LockOpen,
                             contentDescription = "Read Only",
-                            tint = if (isReadOnly) Color(0xFFE11D48) else Color(0xFF3B82F6)
+                            tint = if (isReadOnly || isViewingVersion) Color(0xFFE11D48) else Color(0xFF3B82F6)
                         )
                     }
-                    IconButton(onClick = onUndo, enabled = canUndo && !isReadOnly) { 
+                    IconButton(onClick = onUndo, enabled = canUndo && !isReadOnly && !isViewingVersion) { 
                         Icon(Icons.AutoMirrored.Filled.Undo, contentDescription = "Undo") 
                     }
-                    IconButton(onClick = onRedo, enabled = canRedo && !isReadOnly) { 
+                    IconButton(onClick = onRedo, enabled = canRedo && !isReadOnly && !isViewingVersion) { 
                         Icon(Icons.AutoMirrored.Filled.Redo, contentDescription = "Redo") 
                     }
-                    IconButton(onClick = onSearchClick) { 
-                        Icon(Icons.Default.Search, contentDescription = "Search") 
-                    }
-                    if (fileExtension == "md") {
-                        IconButton(onClick = onPreviewClick) { 
-                            Icon(Icons.Default.Visibility, contentDescription = "Preview") 
+                    
+                    Box {
+                        IconButton(onClick = { showMoreActions = true }) {
+                            Icon(Icons.Default.MoreVert, contentDescription = "More Actions")
+                        }
+                        DropdownMenu(
+                            expanded = showMoreActions,
+                            onDismissRequest = { showMoreActions = false }
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("Search & Replace") },
+                                onClick = { 
+                                    showMoreActions = false
+                                    onSearchClick() 
+                                },
+                                leadingIcon = { Icon(Icons.Default.Search, null) }
+                            )
+                            if (fileExtension == "md") {
+                                DropdownMenuItem(
+                                    text = { Text("Markdown Preview") },
+                                    onClick = { 
+                                        showMoreActions = false
+                                        onPreviewClick() 
+                                    },
+                                    leadingIcon = { Icon(Icons.Default.Visibility, null) }
+                                )
+                            }
+                            if (fileExtension == "kt") {
+                                DropdownMenuItem(
+                                    text = { Text("Format Code") },
+                                    onClick = {
+                                        showMoreActions = false
+                                        val formatted = com.example.textbook.editor.CodeFormatter.formatKotlin(textContent)
+                                        onTextChange(formatted)
+                                    },
+                                    leadingIcon = { Icon(Icons.AutoMirrored.Filled.FormatAlignLeft, null) },
+                                    enabled = !isReadOnly && !isViewingVersion
+                                )
+                            }
+                            DropdownMenuItem(
+                                text = { Text("Save As") },
+                                onClick = { 
+                                    showMoreActions = false
+                                    onSaveAsClick() 
+                                },
+                                leadingIcon = { Icon(Icons.Default.SaveAs, null) }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Version History") },
+                                onClick = { 
+                                    showMoreActions = false
+                                    onSaveVersionClick() 
+                                },
+                                leadingIcon = { Icon(Icons.Default.History, null) }
+                            )
                         }
                     }
-                    if (fileExtension == "kt") {
-                        IconButton(onClick = {
-                            val formatted = com.example.textbook.editor.CodeFormatter.formatKotlin(textContent)
-                            onTextChange(formatted)
-                        }, enabled = !isReadOnly) {
-                            Icon(Icons.AutoMirrored.Filled.FormatAlignLeft, contentDescription = "Format")
-                        }
-                    }
-                    IconButton(onClick = onSaveClick, enabled = !isReadOnly) { 
+
+                    IconButton(onClick = onSaveClick, enabled = !isReadOnly && !isViewingVersion) { 
                         Icon(Icons.Default.Save, contentDescription = "Save") 
-                    }
-                    IconButton(onClick = onSaveVersionClick, enabled = !isReadOnly) {
-                        Icon(Icons.Default.History, contentDescription = "Save Version")
                     }
                 }
             )
         },
         bottomBar = {
-            EditorBottomBar(fileExtension, textContent, isReadOnly)
+            EditorBottomBar(fileExtension, textContent, isReadOnly || isViewingVersion)
         }
     ) { innerPadding ->
         Column(modifier = Modifier.padding(innerPadding).fillMaxSize()) {
-            EditorArea(textContent, fileExtension, fontSize, isReadOnly, onTextChange)
+            if (isViewingVersion) {
+                Surface(
+                    color = Color(0xFFFFF1F2),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            "Viewing old version. Restore to edit.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Color(0xFF9F1239)
+                        )
+                    }
+                }
+            }
+            EditorArea(textContent, fileExtension, fontSize, isReadOnly || isViewingVersion, onTextChange)
         }
     }
 }
 
 @Composable
 fun EditorArea(text: String, extension: String, fontSize: Int, isReadOnly: Boolean, onTextChange: (String) -> Unit) {
+    val scrollState = rememberScrollState()
+    
     Row(modifier = Modifier.fillMaxSize()) {
-        // Line Numbers
+        // Line Numbers (Requirement 13 improvement)
         val lines = text.split("\n").size
         Column(
             modifier = Modifier
                 .width(44.dp)
                 .fillMaxHeight()
                 .background(Color(0xFFFAFAFA))
+                .verticalScroll(scrollState)
                 .padding(top = 16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             for (i in 1..lines) {
-                Text(text = i.toString(), fontSize = (fontSize - 2).sp, color = Color.LightGray, fontFamily = FontFamily.Monospace)
+                Text(
+                    text = i.toString(), 
+                    fontSize = (fontSize - 2).sp, 
+                    color = Color.LightGray, 
+                    fontFamily = FontFamily.Monospace,
+                    modifier = Modifier.height(24.dp) // Fixed height to match TextField line height roughly
+                )
             }
         }
         
@@ -234,7 +370,7 @@ fun EditorArea(text: String, extension: String, fontSize: Int, isReadOnly: Boole
             value = text,
             onValueChange = onTextChange,
             readOnly = isReadOnly,
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier.fillMaxSize().verticalScroll(scrollState),
             visualTransformation = SyntaxHighlightTransformation(extension),
             colors = TextFieldDefaults.colors(
                 unfocusedContainerColor = Color.White,
@@ -244,7 +380,8 @@ fun EditorArea(text: String, extension: String, fontSize: Int, isReadOnly: Boole
             ),
             textStyle = LocalTextStyle.current.copy(
                 fontFamily = FontFamily.Monospace,
-                fontSize = fontSize.sp
+                fontSize = fontSize.sp,
+                lineHeight = 24.sp // Set explicit line height to match line numbers
             )
         )
     }
@@ -291,12 +428,14 @@ fun EditorScreenPreview() {
             textContent = "fun main() {\n    println(\"Hello\")\n}",
             fontSize = 14,
             isReadOnly = false,
+            isViewingVersion = false,
             canUndo = true,
             canRedo = false,
             onTextChange = {},
             onUndo = {},
             onRedo = {},
             onSaveClick = {},
+            onSaveAsClick = {},
             onSaveVersionClick = {},
             onToggleReadOnly = {},
             onBackClick = {},

@@ -1,6 +1,7 @@
 package com.example.textbook.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -29,6 +30,35 @@ import java.util.*
 fun HistoryScreen(navController: NavController, viewModel: MainViewModel) {
     val versions by viewModel.versions.collectAsState()
     val file by viewModel.currentFile.collectAsState()
+    
+    var versionToRestore by remember { mutableStateOf<FileVersion?>(null) }
+    var selectedVersions by remember { mutableStateOf(setOf<FileVersion>()) }
+
+    // Requirement 5: Confirmation dialog before restoring
+    if (versionToRestore != null) {
+        AlertDialog(
+            onDismissRequest = { versionToRestore = null },
+            title = { Text("Restore Version") },
+            text = { Text("Are you sure you want to restore to v${versionToRestore!!.versionNumber}? This will create a new version with this content.") },
+            confirmButton = {
+                Button(onClick = {
+                    viewModel.restoreVersion(versionToRestore!!)
+                    versionToRestore = null
+                    // After restore, navigate back to editor to see the changes
+                    navController.navigate(Screen.Editor.createRoute(file!!.path)) {
+                        popUpTo(Screen.History.route) { inclusive = true }
+                    }
+                }) {
+                    Text("Restore")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { versionToRestore = null }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
 
     Scaffold(
         topBar = {
@@ -42,6 +72,19 @@ fun HistoryScreen(navController: NavController, viewModel: MainViewModel) {
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
                         Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                    }
+                },
+                actions = {
+                    // Requirement 4: Allow users to compare any two versions
+                    if (selectedVersions.size == 2) {
+                        IconButton(onClick = {
+                            val sorted = selectedVersions.toList().sortedBy { it.versionNumber }
+                            viewModel.showDiff(sorted[0], sorted[1])
+                            navController.navigate(Screen.DiffViewer.route)
+                            selectedVersions = emptySet()
+                        }) {
+                            Icon(Icons.Default.Difference, contentDescription = "Compare Selected", tint = MaterialTheme.colorScheme.primary)
+                        }
                     }
                 }
             )
@@ -63,16 +106,48 @@ fun HistoryScreen(navController: NavController, viewModel: MainViewModel) {
 
                 LazyColumn(
                     modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                    contentPadding = PaddingValues(top = 16.dp, bottom = 16.dp)
                 ) {
                     items(versions) { version ->
+                        val isSelected = selectedVersions.contains(version)
                         VersionItem(
                             version = version,
-                            onRestore = { viewModel.restoreVersion(version) },
+                            isSelected = isSelected,
+                            onToggleSelect = {
+                                if (isSelected) {
+                                    selectedVersions = selectedVersions - version
+                                } else if (selectedVersions.size < 2) {
+                                    selectedVersions = selectedVersions + version
+                                }
+                            },
+                            onView = {
+                                viewModel.viewVersion(version)
+                                navController.navigate(Screen.Editor.createRoute(file!!.path))
+                            },
+                            onRestore = { versionToRestore = version },
                             onDiff = {
                                 viewModel.showDiff(version)
                                 navController.navigate(Screen.DiffViewer.route)
                             }
+                        )
+                    }
+                }
+                
+                if (selectedVersions.isNotEmpty() && selectedVersions.size < 2) {
+                    Surface(
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .padding(bottom = 16.dp),
+                        shape = RoundedCornerShape(24.dp),
+                        color = MaterialTheme.colorScheme.primaryContainer,
+                        tonalElevation = 4.dp
+                    ) {
+                        Text(
+                            "Select another version to compare",
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer
                         )
                     }
                 }
@@ -82,18 +157,33 @@ fun HistoryScreen(navController: NavController, viewModel: MainViewModel) {
 }
 
 @Composable
-fun VersionItem(version: FileVersion, onRestore: () -> Unit, onDiff: () -> Unit) {
+fun VersionItem(
+    version: FileVersion, 
+    isSelected: Boolean,
+    onToggleSelect: () -> Unit,
+    onView: () -> Unit,
+    onRestore: () -> Unit, 
+    onDiff: () -> Unit
+) {
     val dateFormat = SimpleDateFormat("MMM dd, h:mm a", Locale.getDefault())
     val timeString = dateFormat.format(Date(version.timestamp))
 
-    Row(modifier = Modifier.fillMaxWidth()) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onToggleSelect() }
+    ) {
         // Dot on the timeline
         Box(
             modifier = Modifier
                 .padding(top = 8.dp)
                 .size(12.dp)
                 .clip(CircleShape)
-                .background(if (version.isFavorite) Color(0xFFFFA500) else Color(0xFF2196F3))
+                .background(
+                    if (isSelected) MaterialTheme.colorScheme.primary 
+                    else if (version.isFavorite) Color(0xFFFFA500) 
+                    else Color(0xFF2196F3)
+                )
         )
         
         Spacer(modifier = Modifier.width(16.dp))
@@ -101,8 +191,11 @@ fun VersionItem(version: FileVersion, onRestore: () -> Unit, onDiff: () -> Unit)
         Card(
             modifier = Modifier.weight(1f),
             shape = RoundedCornerShape(12.dp),
-            colors = CardDefaults.cardColors(containerColor = Color.White),
-            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+            colors = CardDefaults.cardColors(
+                containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f) else Color.White
+            ),
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+            border = if (isSelected) androidx.compose.foundation.BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
                 Row(
@@ -110,23 +203,41 @@ fun VersionItem(version: FileVersion, onRestore: () -> Unit, onDiff: () -> Unit)
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(text = "v${version.versionNumber} - ${version.versionName}", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        if (isSelected) {
+                            Icon(Icons.Default.CheckCircle, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp).padding(end = 4.dp))
+                        }
+                        Text(text = "v${version.versionNumber} - ${version.versionName}", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                    }
                     Text(text = timeString, fontSize = 12.sp, color = Color.Gray)
                 }
                 
                 if (!version.comment.isNullOrBlank()) {
-                    Text(text = version.comment, fontSize = 14.sp, modifier = Modifier.padding(vertical = 4.dp))
+                    Text(text = version.comment, fontSize = 14.sp, modifier = Modifier.padding(vertical = 4.dp), color = Color.DarkGray)
                 }
                 
                 Spacer(modifier = Modifier.height(12.dp))
                 
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    // Requirement 6: View (Read-Only)
+                    OutlinedButton(
+                        onClick = onView,
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(8.dp),
+                        contentPadding = PaddingValues(0.dp)
+                    ) {
+                        Icon(Icons.Default.Visibility, contentDescription = null, modifier = Modifier.size(14.dp))
+                        Spacer(Modifier.width(4.dp))
+                        Text("View", fontSize = 12.sp)
+                    }
                     OutlinedButton(
                         onClick = onRestore,
                         modifier = Modifier.weight(1f),
                         shape = RoundedCornerShape(8.dp),
                         contentPadding = PaddingValues(0.dp)
                     ) {
+                        Icon(Icons.Default.Restore, contentDescription = null, modifier = Modifier.size(14.dp))
+                        Spacer(Modifier.width(4.dp))
                         Text("Restore", fontSize = 12.sp)
                     }
                     OutlinedButton(
@@ -135,13 +246,9 @@ fun VersionItem(version: FileVersion, onRestore: () -> Unit, onDiff: () -> Unit)
                         shape = RoundedCornerShape(8.dp),
                         contentPadding = PaddingValues(0.dp)
                     ) {
+                        Icon(Icons.Default.Difference, contentDescription = null, modifier = Modifier.size(14.dp))
+                        Spacer(Modifier.width(4.dp))
                         Text("Diff", fontSize = 12.sp)
-                    }
-                    IconButton(
-                        onClick = { /* Delete version */ },
-                        modifier = Modifier.size(40.dp).background(Color(0xFFFFEBEE), RoundedCornerShape(8.dp))
-                    ) {
-                        Icon(Icons.Default.DeleteOutline, contentDescription = "Delete", tint = Color.Red, modifier = Modifier.size(20.dp))
                     }
                 }
             }

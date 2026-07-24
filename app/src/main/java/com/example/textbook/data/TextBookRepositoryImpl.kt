@@ -84,7 +84,7 @@ class TextBookRepositoryImpl @Inject constructor(
         val versions = fileDao.getVersionsForFile(path).first()
         val nextNumber = (versions.maxByOrNull { it.versionNumber }?.versionNumber ?: 0) + 1
         
-        // Store how to get from the NEW content back to the OLD content
+        // Requirement 7: Store how to get from the NEW content back to the OLD content (Delta storage)
         val diff = diffManager.generateDiffJson(content, currentContent)
         val version = VersionEntity(
             filePath = path,
@@ -103,7 +103,7 @@ class TextBookRepositoryImpl @Inject constructor(
         
         var content = storageManager.readFile(version.filePath)
         
-        // Apply deltas to go back in time
+        // Requirement 7: Apply deltas (patches) to go back in time
         for (v in sortedVersions) {
             if (v.versionNumber > version.versionNumber) {
                 content = diffManager.applyDiffJson(content, v.diffContent)

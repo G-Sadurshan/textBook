@@ -36,7 +36,7 @@ data class VersionEntity(
     val versionNumber: Int,
     val timestamp: Long,
     val comment: String?,
-    val diffContent: String, // Storing incremental changes (deltas)
+    val diffContent: String, // Requirement 7: Delta storage
     val isFavorite: Boolean = false
 )
 

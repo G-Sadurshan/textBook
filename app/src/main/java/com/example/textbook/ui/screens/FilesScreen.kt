@@ -86,10 +86,15 @@ fun FilesScreen(navController: NavController, viewModel: MainViewModel) {
             } else {
                 LazyColumn(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     items(files) { file ->
-                        ExplorerFileItem(file) { 
-                            viewModel.openFile(file.path)
-                            navController.navigate(Screen.Editor.createRoute(file.path)) 
-                        }
+                        ExplorerFileItem(
+                            file = file, 
+                            onClick = { 
+                                viewModel.openFile(file.path)
+                                navController.navigate(Screen.Editor.createRoute(file.path)) 
+                            },
+                            onDelete = { viewModel.moveToTrash(file.path) },
+                            onRename = { newName -> viewModel.renameFile(file, newName) }
+                        )
                     }
                 }
             }
@@ -100,7 +105,39 @@ fun FilesScreen(navController: NavController, viewModel: MainViewModel) {
 }
 
 @Composable
-fun ExplorerFileItem(file: TextFile, onClick: () -> Unit) {
+fun ExplorerFileItem(file: TextFile, onClick: () -> Unit, onDelete: () -> Unit, onRename: (String) -> Unit) {
+    var showMenu by remember { mutableStateOf(false) }
+    var showRenameDialog by remember { mutableStateOf(false) }
+    var newName by remember { mutableStateOf(file.name) }
+
+    if (showRenameDialog) {
+        AlertDialog(
+            onDismissRequest = { showRenameDialog = false },
+            title = { Text("Rename File") },
+            text = {
+                OutlinedTextField(
+                    value = newName,
+                    onValueChange = { newName = it },
+                    label = { Text("New Name") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+            },
+            confirmButton = {
+                Button(onClick = {
+                    onRename(newName)
+                    showRenameDialog = false
+                }) {
+                    Text("Rename")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showRenameDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
     Card(
         onClick = onClick,
         modifier = Modifier.fillMaxWidth(),
@@ -129,9 +166,35 @@ fun ExplorerFileItem(file: TextFile, onClick: () -> Unit) {
             }
             Column(modifier = Modifier.weight(1f)) {
                 Text(text = file.name, fontWeight = FontWeight.Bold, color = Color(0xFF0F172A))
-                Text(text = "${file.extension.uppercase()} • ${file.path}", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+                Text(text = "${file.extension.uppercase()} • ${file.path}", style = MaterialTheme.typography.bodySmall, color = Color.Gray, maxLines = 1)
             }
-            Icon(Icons.Default.ChevronRight, contentDescription = null, tint = Color.Gray)
+            
+            Box {
+                IconButton(onClick = { showMenu = true }) {
+                    Icon(Icons.Default.MoreVert, contentDescription = "More", tint = Color.Gray)
+                }
+                DropdownMenu(
+                    expanded = showMenu,
+                    onDismissRequest = { showMenu = false }
+                ) {
+                    DropdownMenuItem(
+                        text = { Text("Rename") },
+                        onClick = { 
+                            showMenu = false
+                            showRenameDialog = true
+                        },
+                        leadingIcon = { Icon(Icons.Default.Edit, null) }
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Move to Trash") },
+                        onClick = { 
+                            showMenu = false
+                            onDelete() 
+                        },
+                        leadingIcon = { Icon(Icons.Default.Delete, null) }
+                    )
+                }
+            }
         }
     }
 }

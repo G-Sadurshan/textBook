@@ -1,5 +1,6 @@
 package com.example.textbook.ui.screens
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -80,7 +81,11 @@ fun SearchReplaceScreen(navController: NavController, viewModel: MainViewModel) 
             
             LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 items(searchResults) { index ->
-                    SearchResultItem("Current File", index, "Match found at character $index")
+                    SearchResultItem("Current File", index, "Match found at character $index") {
+                        // In a real app, we'd navigate back and scroll.
+                        // For this implementation, we'll just pop back.
+                        navController.popBackStack()
+                    }
                 }
             }
         }
@@ -88,9 +93,9 @@ fun SearchReplaceScreen(navController: NavController, viewModel: MainViewModel) 
 }
 
 @Composable
-fun SearchResultItem(fileName: String, position: Int, content: String) {
+fun SearchResultItem(fileName: String, position: Int, content: String, onClick: () -> Unit) {
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth().clickable { onClick() },
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(containerColor = Color(0xFFF9F9F9))
     ) {

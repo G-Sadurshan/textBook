@@ -9,6 +9,19 @@ import androidx.compose.ui.text.withStyle
 
 object SyntaxHighlighter {
 
+    private var kotlinKeywords = setOf(
+        "package", "import", "class", "interface", "fun", "val", "var", "if", "else", "for", "while",
+        "return", "when", "is", "in", "as", "try", "catch", "finally", "throw", "object", "typealias",
+        "typeof", "yield", "by", "get", "set", "private", "public", "protected", "internal", "override",
+        "open", "abstract", "enum", "data", "sealed", "annotation", "constructor", "init", "suspend", "tailrec"
+    )
+
+    fun initialize(keywords: Set<String>) {
+        if (keywords.isNotEmpty()) {
+            kotlinKeywords = keywords
+        }
+    }
+
     private val colors = object {
         val keyword = Color(0xFFD32F2F)
         val string = Color(0xFF388E3C)
@@ -19,13 +32,6 @@ object SyntaxHighlighter {
         val tag = Color(0xFF00796B)
         val attribute = Color(0xFFE64A19)
     }
-
-    private val kotlinKeywords = setOf(
-        "package", "import", "class", "interface", "fun", "val", "var", "if", "else", "for", "while",
-        "return", "when", "is", "in", "as", "try", "catch", "finally", "throw", "object", "typealias",
-        "typeof", "yield", "by", "get", "set", "private", "public", "protected", "internal", "override",
-        "open", "abstract", "enum", "data", "sealed", "annotation", "constructor", "init", "suspend", "tailrec"
-    )
 
     private val javaKeywords = setOf(
         "abstract", "assert", "boolean", "break", "byte", "case", "catch", "char", "class", "const",
