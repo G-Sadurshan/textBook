@@ -162,6 +162,26 @@ class MainViewModel @Inject constructor(
         }
     }
 
+    fun moveToTrash(path: String) {
+        viewModelScope.launch {
+            try {
+                repository.moveToTrash(path)
+            } catch (e: Exception) {
+                Timber.e(e, "Failed to move file to trash: $path")
+            }
+        }
+    }
+
+    fun deleteFile(path: String) {
+        viewModelScope.launch {
+            try {
+                repository.deleteFile(path)
+            } catch (e: Exception) {
+                Timber.e(e, "Failed to delete file: $path")
+            }
+        }
+    }
+
     fun cacheForRecovery(content: String) {
         val file = _currentFile.value ?: return
         if (file.isReadOnly) return
