@@ -75,6 +75,9 @@ fun HistoryScreen(navController: NavController, viewModel: MainViewModel) {
                     }
                 },
                 actions = {
+                    IconButton(onClick = { viewModel.refreshVersions() }) {
+                        Icon(Icons.Default.Refresh, contentDescription = "Refresh")
+                    }
                     // Requirement 4: Allow users to compare any two versions
                     if (selectedVersions.size == 2) {
                         IconButton(onClick = {
@@ -103,6 +106,10 @@ fun HistoryScreen(navController: NavController, viewModel: MainViewModel) {
                         modifier = Modifier.padding(horizontal = 32.dp),
                         textAlign = androidx.compose.ui.text.style.TextAlign.Center
                     )
+                    Spacer(Modifier.height(16.dp))
+                    Button(onClick = { viewModel.refreshVersions() }) {
+                        Text("Refresh History")
+                    }
                 }
             }
         } else {

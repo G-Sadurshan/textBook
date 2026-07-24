@@ -69,6 +69,9 @@ fun FilesScreen(navController: NavController, viewModel: MainViewModel) {
                     onQueryChange = { viewModel.updateFileSearchQuery(it) },
                     modifier = Modifier.weight(1f)
                 )
+                IconButton(onClick = { viewModel.refreshVersions() }) {
+                    Icon(Icons.Default.Refresh, contentDescription = "Refresh")
+                }
                 IconButton(onClick = { /* Sort */ }) {
                     Icon(Icons.Default.Sort, contentDescription = "Sort")
                 }

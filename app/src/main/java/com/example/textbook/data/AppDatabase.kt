@@ -42,6 +42,9 @@ interface FileDao {
     @Query("SELECT * FROM versions WHERE filePath = :path ORDER BY timestamp DESC")
     fun getVersionsForFile(path: String): Flow<List<VersionEntity>>
 
+    @Query("SELECT * FROM versions WHERE filePath = :path ORDER BY timestamp DESC")
+    suspend fun getVersionsForFileSync(path: String): List<VersionEntity>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertVersion(version: VersionEntity)
 

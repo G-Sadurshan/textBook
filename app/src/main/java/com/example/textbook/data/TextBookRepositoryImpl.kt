@@ -101,7 +101,7 @@ class TextBookRepositoryImpl @Inject constructor(
 
     override suspend fun createVersion(path: String, name: String, comment: String?, content: String) {
         val currentContent = storageManager.readFile(path)
-        val versions = fileDao.getVersionsForFile(path).first()
+        val versions = fileDao.getVersionsForFileSync(path)
         val nextNumber = (versions.maxByOrNull { it.versionNumber }?.versionNumber ?: 0) + 1
         
         // Requirement 7: Store how to get from the NEW content back to the OLD content (Delta storage)

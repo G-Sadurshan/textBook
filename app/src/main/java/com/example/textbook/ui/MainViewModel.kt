@@ -41,10 +41,21 @@ class MainViewModel @Inject constructor(
     val pinnedFiles = repository.getPinnedFiles()
         .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
-    val versions = _currentFile.flatMapLatest { file ->
-        if (file != null) repository.getVersionsForFile(file.path)
-        else flowOf(emptyList())
-    }.stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
+    val versions = _currentFile
+        .distinctUntilChanged { old, new -> old?.path == new?.path }
+        .flatMapLatest { file ->
+            if (file != null) repository.getVersionsForFile(file.path)
+            else flowOf(emptyList())
+        }.stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
+
+    fun refreshVersions() {
+        val file = _currentFile.value ?: return
+        viewModelScope.launch {
+            // Force a refresh by re-opening the file
+            openFile(file.path)
+            Timber.d("Manual versions refresh triggered for ${file.path}")
+        }
+    }
 
     // Settings
     val themeMode = settingsManager.themeMode
