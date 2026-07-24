@@ -177,6 +177,9 @@ fun EditorScreen(navController: NavController, viewModel: MainViewModel) {
         onSaveVersionClick = {
             showSaveVersionDialog = true
         },
+        onViewHistoryClick = {
+            navController.navigate(Screen.History.route)
+        },
         onToggleReadOnly = { viewModel.toggleReadOnly() },
         onBackClick = { 
             if (isViewingVersion) {
@@ -209,6 +212,7 @@ fun EditorScreenContent(
     onSaveClick: () -> Unit,
     onSaveAsClick: () -> Unit,
     onSaveVersionClick: () -> Unit,
+    onViewHistoryClick: () -> Unit,
     onToggleReadOnly: () -> Unit,
     onBackClick: () -> Unit,
     onSearchClick: () -> Unit,
@@ -286,20 +290,28 @@ fun EditorScreenContent(
                                 )
                             }
                             DropdownMenuItem(
+                                text = { Text("Create Snapshot") },
+                                onClick = { 
+                                    showMoreActions = false
+                                    onSaveVersionClick() 
+                                },
+                                leadingIcon = { Icon(Icons.Default.AddAPhoto, null) }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("View History") },
+                                onClick = { 
+                                    showMoreActions = false
+                                    onViewHistoryClick() 
+                                },
+                                leadingIcon = { Icon(Icons.Default.History, null) }
+                            )
+                            DropdownMenuItem(
                                 text = { Text("Save As") },
                                 onClick = { 
                                     showMoreActions = false
                                     onSaveAsClick() 
                                 },
                                 leadingIcon = { Icon(Icons.Default.SaveAs, null) }
-                            )
-                            DropdownMenuItem(
-                                text = { Text("Version History") },
-                                onClick = { 
-                                    showMoreActions = false
-                                    onSaveVersionClick() 
-                                },
-                                leadingIcon = { Icon(Icons.Default.History, null) }
                             )
                         }
                     }
@@ -437,6 +449,7 @@ fun EditorScreenPreview() {
             onSaveClick = {},
             onSaveAsClick = {},
             onSaveVersionClick = {},
+            onViewHistoryClick = {},
             onToggleReadOnly = {},
             onBackClick = {},
             onSearchClick = {},

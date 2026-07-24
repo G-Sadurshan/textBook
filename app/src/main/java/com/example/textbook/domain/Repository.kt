@@ -14,6 +14,7 @@ interface TextBookRepository {
     suspend fun deleteFile(path: String)
     suspend fun moveToTrash(path: String)
     suspend fun restoreFromTrash(path: String)
+    suspend fun renameFile(oldPath: String, newFile: TextFile)
     
     // Versions
     fun getVersionsForFile(path: String): Flow<List<FileVersion>>

@@ -35,6 +35,9 @@ interface FileDao {
     @Query("UPDATE files SET isDeleted = 0 WHERE path = :path")
     suspend fun restoreFromTrash(path: String)
 
+    @Query("UPDATE versions SET filePath = :newPath WHERE filePath = :oldPath")
+    suspend fun updateVersionPaths(oldPath: String, newPath: String)
+
     // Versioning
     @Query("SELECT * FROM versions WHERE filePath = :path ORDER BY timestamp DESC")
     fun getVersionsForFile(path: String): Flow<List<VersionEntity>>

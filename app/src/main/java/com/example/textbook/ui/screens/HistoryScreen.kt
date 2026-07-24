@@ -92,7 +92,18 @@ fun HistoryScreen(navController: NavController, viewModel: MainViewModel) {
     ) { innerPadding ->
         if (versions.isEmpty()) {
             Box(modifier = Modifier.padding(innerPadding).fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text("No versions recorded yet", color = Color.Gray)
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Icon(Icons.Default.History, null, modifier = Modifier.size(64.dp), tint = Color.LightGray)
+                    Spacer(Modifier.height(16.dp))
+                    Text("No versions recorded yet", color = Color.Gray, fontWeight = FontWeight.Bold)
+                    Text(
+                        "Create a snapshot in the editor to see history here", 
+                        color = Color.Gray, 
+                        fontSize = 12.sp,
+                        modifier = Modifier.padding(horizontal = 32.dp),
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                    )
+                }
             }
         } else {
             Box(modifier = Modifier.padding(innerPadding).fillMaxSize()) {

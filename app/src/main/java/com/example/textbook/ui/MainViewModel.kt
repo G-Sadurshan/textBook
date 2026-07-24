@@ -142,18 +142,18 @@ class MainViewModel @Inject constructor(
     fun renameFile(file: TextFile, newName: String) {
         viewModelScope.launch {
             try {
-                val oldFile = java.io.File(file.path)
+                val oldPath = file.path
+                val oldFile = java.io.File(oldPath)
                 val newPath = "${oldFile.parent}/$newName.${file.extension}"
                 val newFile = file.copy(path = newPath, name = newName)
                 
                 // Move physical file
                 oldFile.renameTo(java.io.File(newPath))
                 
-                // Update DB (Save new, delete old - or update if implementation allows)
-                repository.saveFile(newFile)
-                repository.deleteFile(file.path)
+                // Requirement 10: Ensure no data loss during rename
+                repository.renameFile(oldPath, newFile)
                 
-                if (_currentFile.value?.path == file.path) {
+                if (_currentFile.value?.path == oldPath) {
                     _currentFile.value = newFile
                 }
             } catch (e: Exception) {

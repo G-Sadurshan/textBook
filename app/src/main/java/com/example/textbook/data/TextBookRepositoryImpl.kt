@@ -74,6 +74,26 @@ class TextBookRepositoryImpl @Inject constructor(
         fileDao.restoreFromTrash(path)
     }
 
+    override suspend fun renameFile(oldPath: String, newFile: TextFile) {
+        // 1. Insert new file entry
+        val entity = FileEntity(
+            path = newFile.path,
+            name = newFile.name,
+            extension = newFile.extension,
+            lastModified = System.currentTimeMillis(),
+            isReadOnly = newFile.isReadOnly,
+            isPinned = newFile.isPinned,
+            isFavorite = newFile.isFavorite
+        )
+        fileDao.insertFile(entity)
+        
+        // 2. Update all versions to point to the new path
+        fileDao.updateVersionPaths(oldPath, newFile.path)
+        
+        // 3. Delete old file entry (versions won't be deleted now as they point to newPath)
+        fileDao.deleteFile(FileEntity(path = oldPath, name = "", extension = "", lastModified = 0))
+    }
+
     override fun getVersionsForFile(path: String): Flow<List<FileVersion>> = 
         fileDao.getVersionsForFile(path).map { list ->
             list.map { it.toDomain() }
