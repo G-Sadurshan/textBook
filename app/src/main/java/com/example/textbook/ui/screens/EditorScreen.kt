@@ -42,13 +42,13 @@ fun EditorScreen(navController: NavController, viewModel: MainViewModel) {
     var showSaveVersionDialog by remember { mutableStateOf(false) }
     var showSaveAsDialog by remember { mutableStateOf(false) }
 
-    // Crash Prevention: Periodic background cache every 10 seconds (Requirement 4)
+    // Requirement 4: Real-time Auto-save on type (every 5 seconds)
     LaunchedEffect(file?.path, file?.isReadOnly, isViewingVersion) {
         if (file != null && !file!!.isReadOnly && !isViewingVersion) {
             while (true) {
-                delay(10000)
+                delay(5000) // Improved to 5 seconds for university requirement
                 if (undoRedoManager.currentContent != file?.content) {
-                    viewModel.cacheForRecovery(undoRedoManager.currentContent)
+                    viewModel.saveFile(undoRedoManager.currentContent) // Auto-save to physical file
                 }
             }
         }
